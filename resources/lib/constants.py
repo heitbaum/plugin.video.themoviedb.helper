@@ -260,3 +260,17 @@ TRAKT_SYNC_LISTS = {
         'sort_how': 'desc'
     }
 }
+
+
+TRAKT_LIST_OF_LISTS = {
+    'trakt_trendinglists': {
+        'path': 'lists/trending'},
+    'trakt_popularlists': {
+        'path': 'lists/popular'},
+    'trakt_likedlists': {
+        'path': 'users/likes/lists',
+        'authorize': True},
+    'trakt_mylists': {
+        'path': 'users/me/lists',
+        'authorize': True}
+}

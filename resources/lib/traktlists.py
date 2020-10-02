@@ -46,6 +46,31 @@ class TraktLists():
         self.container_content = plugin.convert_type(info_tmdb_type, plugin.TYPE_CONTAINER)
         return items
 
+    def list_lists(self, info, page=None, **kwargs):
+        info_model = constants.TRAKT_LIST_OF_LISTS.get(info)
+        items = TraktAPI().get_list_of_lists(
+            path=info_model.get('path', '').format(**kwargs),
+            page=page,
+            authorize=info_model.get('authorize', False))
+        self.library = 'video'
+        return items
+
+    def list_userlist(self, list_slug, user_slug=None, page=None, **kwargs):
+        response = TraktAPI().get_userlist(
+            list_slug=list_slug,
+            user_slug=user_slug,
+            page=page,
+            authorize=False if user_slug else True)
+        if not response:
+            return []
+        self.tmdb_cache_only = False
+        self.library = 'video'
+        if len(response.get('movies', [])) > len(response.get('tvshows', [])):
+            self.container_content = 'movies'
+        else:
+            self.container_content = 'tvshows'
+        return response.get('items', []) + response.get('next_page', [])
+
     def list_becauseyouwatched(self, info, tmdb_type, page=None, **kwargs):
         trakt_type = plugin.convert_type(tmdb_type, plugin.TYPE_TRAKT)
         activity_type = 'episode' if trakt_type == 'show' else trakt_type

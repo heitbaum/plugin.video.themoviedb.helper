@@ -166,6 +166,8 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             return self.list_nextepisodes(**kwargs)
         if info == 'trakt_upnext':
             return self.list_upnext(**kwargs)
+        if info == 'trakt_userlist':
+            return self.list_userlist(**kwargs)
         if info in ['trakt_becauseyouwatched', 'trakt_becausemostwatched']:
             return self.list_becauseyouwatched(**kwargs)
         if info in constants.TMDB_BASIC_LISTS:
@@ -174,6 +176,8 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             return self.list_trakt(**kwargs)
         if info in constants.TRAKT_SYNC_LISTS:
             return self.list_sync(**kwargs)
+        if info in constants.TRAKT_LIST_OF_LISTS:
+            return self.list_lists(**kwargs)
         return self.list_basedir(info)
 
     def get_directory(self):
