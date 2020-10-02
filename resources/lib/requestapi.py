@@ -100,6 +100,7 @@ class RequestAPI(object):
         cache_force = kwargs.pop('cache_force', False)  # Force retrieved object to be saved in cache. Use int to specify cache_days for fallback object.
         cache_fallback = kwargs.pop('cache_fallback', False)  # Object to force cache if no object retrieved.
         cache_refresh = kwargs.pop('cache_refresh', False)  # Ignore cached timestamps and retrieve new object.
+        cache_combine_name = kwargs.pop('cache_combine_name', False)  # Combine given cache_name with auto naming via args/kwargs
         headers = kwargs.pop('headers', None) or self.headers  # Optional override to default headers.
         postdata = kwargs.pop('postdata', None)  # Postdata if need to POST to a RESTful API.
         request_url = self.get_request_url(*args, **kwargs)
@@ -112,4 +113,5 @@ class RequestAPI(object):
             cache_name=cache_name,
             cache_only=cache_only,
             cache_force=cache_force,
-            cache_fallback=cache_fallback)
+            cache_fallback=cache_fallback,
+            cache_combine_name=cache_combine_name)

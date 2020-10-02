@@ -226,7 +226,6 @@ class Players(object):
                 item[key + '_escaped+'] = quote(quote_plus(utils.try_encode_string(value)))
                 item[key + '_url'] = quote(utils.try_encode_string(value))
                 item[key + '_url+'] = quote_plus(utils.try_encode_string(value))
-        utils.kodi_log(item, 1)
         return item
 
     def _select_player(self, detailed=True):

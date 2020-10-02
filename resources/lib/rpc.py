@@ -103,7 +103,6 @@ def _get_infolabels(item, key, dbid):
     infolabels['tracknumber'] = item.get('tracknumber')
     infolabels['rating'] = item.get('rating')
     infolabels['userrating'] = item.get('userrating')
-    infolabels['watched'] = item.get('watched')
     infolabels['playcount'] = utils.try_parse_int(item.get('playcount'))
     infolabels['overlay'] = item.get('overlay')
     infolabels['director'] = item.get('director') or []

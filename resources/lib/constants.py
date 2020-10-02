@@ -211,35 +211,47 @@ TRAKT_BASIC_LISTS = {
         'path': '{trakt_type}s/boxoffice',
         'item_key': '{trakt_type}'
     },
+    'trakt_recommendations': {
+        'path': 'recommendations/{trakt_type}s?ignore_collected=true',
+        'authorize': True
+    }
+}
+
+
+TRAKT_SYNC_LISTS = {
     'trakt_collection': {
-        'path': 'sync/collection/{trakt_type}s',
+        'sync_type': 'collection',
+        'activity_key': 'collected_at',
         'item_key': '{trakt_type}',
-        'authorize': True,
-        'paginate': True,
         'sort_by': 'title',
         'sort_how': 'asc'
     },
     'trakt_watchlist': {
-        'path': 'sync/watchlist/{trakt_type}s',
+        'sync_type': 'watchlist',
+        'use_show_activity': True,
+        'activity_key': 'watchlisted_at',
         'item_key': '{trakt_type}',
-        'authorize': True,
-        'paginate': True,
         'sort_by': 'unsorted'
     },
     'trakt_history': {
-        'path': 'sync/watched/{trakt_type}s',
+        'sync_type': 'watched',
+        'activity_key': 'watched_at',
         'item_key': '{trakt_type}',
-        'authorize': True,
-        'paginate': True,
         'sort_by': 'watched',
         'sort_how': 'desc'
     },
     'trakt_mostwatched': {
-        'path': 'sync/watched/{trakt_type}s',
+        'sync_type': 'watched',
+        'activity_key': 'watched_at',
         'item_key': '{trakt_type}',
-        'authorize': True,
-        'paginate': True,
         'sort_by': 'plays',
+        'sort_how': 'desc'
+    },
+    'trakt_inprogress': {
+        'sync_type': 'playback',
+        'activity_key': 'watched_at',
+        'item_key': '{trakt_type}',
+        'sort_by': 'paused',
         'sort_how': 'desc'
     }
 }

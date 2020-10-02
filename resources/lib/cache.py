@@ -2,7 +2,7 @@ import datetime
 import simplecache
 import resources.lib.utils as utils
 _cache = simplecache.SimpleCache()
-_cache_name = 'plugin.video.themoviedb.helper.v4_0_2'
+_cache_name = 'TMDbHelper_v4'
 
 
 def get_cache(cache_name):
@@ -34,8 +34,9 @@ def use_cache(func, *args, **kwargs):
     cache_force = kwargs.pop('cache_force', False)
     cache_fallback = kwargs.pop('cache_fallback', False)
     cache_refresh = kwargs.pop('cache_refresh', False)
+    cache_combine_name = kwargs.pop('cache_combine_name', False)
     headers = kwargs.pop('headers', None)
-    if not cache_name:
+    if not cache_name or cache_combine_name:
         for arg in args:
             if not arg:
                 continue

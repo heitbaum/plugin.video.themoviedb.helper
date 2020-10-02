@@ -58,18 +58,16 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         listitem_utils = ItemUtils(
             kodi_db=self.kodi_db,
             ftv_api=FanartTV(cache_only=self.ftv_is_cache_only(is_widget=self.is_widget)))
-        listitem_utils.set_trakt_watched()
         for i in items:
             if not allow_pagination and 'next_page' in i:
                 continue
             if self.item_is_excluded(i):
                 continue  # TODO: Filter out unaired items and/or format labels
             listitem = ListItem(parent_params=parent_params, **i)
-            if parent_params.get('info') not in constants.NO_LABEL_FORMATTING:
-                listitem.set_episode_label()
-                if listitem.is_unaired(format_label=u'[COLOR=ffcc0000][I]{}[/I][/COLOR]', check_hide_settings=True):
-                    continue
             listitem.set_details(details=listitem_utils.get_tmdb_details(listitem, cache_only=tmdb_cache_only))  # Quick because only get cached
+            listitem.set_episode_label()
+            if parent_params.get('info') not in constants.NO_LABEL_FORMATTING and listitem.is_unaired():
+                continue
             listitem.set_details(details=listitem_utils.get_ftv_details(listitem), reverse=True)  # Slow when not cache only
             listitem.set_details(details=listitem_utils.get_kodi_details(listitem), reverse=True)  # Quick because local db
             listitem.set_playcount(playcount=listitem_utils.get_playcount_from_trakt(listitem))  # Quick because of agressive caching of Trakt object and pre-emptive dict comprehension
@@ -162,10 +160,20 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             return self.list_cast(**kwargs)
         if info == 'crew':
             return self.list_crew(**kwargs)
+        if info == 'trakt_inprogress':
+            return self.list_inprogress(**kwargs)
+        if info == 'trakt_nextepisodes':
+            return self.list_nextepisodes(**kwargs)
+        if info == 'trakt_upnext':
+            return self.list_upnext(**kwargs)
+        if info in ['trakt_becauseyouwatched', 'trakt_becausemostwatched']:
+            return self.list_becauseyouwatched(**kwargs)
         if info in constants.TMDB_BASIC_LISTS:
             return self.list_tmdb(**kwargs)
         if info in constants.TRAKT_BASIC_LISTS:
             return self.list_trakt(**kwargs)
+        if info in constants.TRAKT_SYNC_LISTS:
+            return self.list_sync(**kwargs)
         return self.list_basedir(info)
 
     def get_directory(self):

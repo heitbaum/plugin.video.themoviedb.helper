@@ -72,7 +72,7 @@ class ListItem(object):
             return self.unique_ids.get('tvshow.tmdb')
         return self.unique_ids.get('tmdb')
 
-    def is_unaired(self, format_label=None, check_hide_settings=False):
+    def is_unaired(self, format_label=u'[COLOR=ffcc0000][I]{}[/I][/COLOR]', check_hide_settings=True):
         if not self.infolabels.get('mediatype') in ['movie', 'tvshow', 'season', 'episode']:
             return
         try:
@@ -125,14 +125,13 @@ class ListItem(object):
 
     def set_playcount(self, playcount):
         playcount = utils.try_parse_int(playcount)
-        if not playcount:
-            return
         if self.infolabels.get('mediatype') in ['movie', 'episode']:
-            self.infolabels['playcount'] = playcount
-            self.infolabels['overlay'] = 5
+            if playcount:
+                self.infolabels['playcount'] = playcount
+                self.infolabels['overlay'] = 5
         elif self.infolabels.get('mediatype') in ['tvshow', 'season']:
-            self.infoproperties['watchedepisodes'] = playcount
             if utils.try_parse_int(self.infolabels.get('episode')):
+                self.infoproperties['watchedepisodes'] = playcount
                 self.infoproperties['totalepisodes'] = utils.try_parse_int(self.infolabels.get('episode'))
                 self.infoproperties['unwatchedepisodes'] = self.infoproperties.get('totalepisodes') - utils.try_parse_int(self.infoproperties.get('watchedepisodes'))
                 if playcount and not self.infoproperties.get('unwatchedepisodes'):
