@@ -1,4 +1,5 @@
 import xbmc
+import datetime
 import resources.lib.utils as utils
 import resources.lib.plugin as plugin
 from resources.lib.tmdb import TMDb
@@ -209,7 +210,7 @@ def _get_basedir_trakt():
         {
             'label': '{} {{item_type}}{{space}}{}'.format(ADDON.getLocalizedString(32201), ADDON.getLocalizedString(32203)),
             'types': ['tv'],
-            'params': {'info': 'trakt_calendar'},
+            'params': {'info': 'dir_calendar_trakt'},
             'path': PLUGINPATH,
             'art': {'thumb': '{}/resources/icons/trakt/calendar.png'.format(ADDONPATH)}},
         {
@@ -395,6 +396,95 @@ def _get_basedir_main():
             'art': {'thumb': '{}/resources/trakt.png'.format(ADDONPATH)}}]
 
 
+def _get_basedir_calendar_items():
+    return [
+        {
+            'label': ADDON.getLocalizedString(32280),
+            'params': {'startdate': -14, 'days': 14},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
+            'label': ADDON.getLocalizedString(32281),
+            'params': {'startdate': -7, 'days': 7},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
+            'label': ADDON.getLocalizedString(32282),
+            'params': {'startdate': -1, 'days': 1},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
+            'label': xbmc.getLocalizedString(33006),
+            'params': {'startdate': 0, 'days': 1},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
+            'label': xbmc.getLocalizedString(33007),
+            'params': {'startdate': 1, 'days': 1},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
+            'label': '{weekday}',
+            'params': {'startdate': 2, 'days': 1},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
+            'label': '{weekday}',
+            'params': {'startdate': 3, 'days': 1},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
+            'label': '{weekday}',
+            'params': {'startdate': 4, 'days': 1},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
+            'label': '{weekday}',
+            'params': {'startdate': 5, 'days': 1},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
+            'label': '{weekday}',
+            'params': {'startdate': 6, 'days': 1},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
+            'label': ADDON.getLocalizedString(32284),
+            'params': {'startdate': 0, 'days': 7},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
+            'label': ADDON.getLocalizedString(32285),
+            'params': {'startdate': 0, 'days': 14},
+            'path': PLUGINPATH,
+            'info_types': ['trakt_calendar', 'library_nextaired'],
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}}]
+
+
+def _get_basedir_calendar(info=None):
+    items = []
+    today = datetime.datetime.today()
+    for i in _get_basedir_calendar_items():
+        if info not in i['info_types']:
+            continue
+        date = today + datetime.timedelta(days=i.get('params', {}).get('startdate', 0))
+        i['label'] = i['label'].format(weekday=date.strftime('%A'))
+        i['params']['info'] = info
+        items.append(i)
+    return items
+
+
 def get_basedir_details(tmdb_type, tmdb_id, season=None, episode=None, detailed_item=None):
     base_item = detailed_item or {}
     base_item.setdefault('params', {})
@@ -451,6 +541,8 @@ class BaseDirLists():
             return _get_basedir_list(None, tmdb=True)
         if info == 'dir_trakt':
             return _get_basedir_list(None, trakt=True)
+        if info == 'dir_calendar_trakt':
+            return _get_basedir_calendar(info='trakt_calendar')
 
     def list_details(self, tmdb_type, tmdb_id, season=None, episode=None, **kwargs):
         base_item = TMDb().get_details(tmdb_type, tmdb_id, season, episode)

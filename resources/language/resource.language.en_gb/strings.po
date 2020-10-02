@@ -1408,6 +1408,46 @@ msgctxt "#32279"
 msgid "Enter Year"
 msgstr ""
 
+#: /resources/lib/basedir.py
+msgctxt "#32280"
+msgid "Last Fornight"
+msgstr ""
+
+#: /resources/lib/basedir.py
+msgctxt "#32281"
+msgid "Last Week"
+msgstr ""
+
+#: /resources/lib/basedir.py
+msgctxt "#32282"
+msgid "Yesterday"
+msgstr ""
+
+#: /resources/lib/basedir.py
+msgctxt "#32283"
+msgid "Next Week"
+msgstr ""
+
+#: /resources/lib/basedir.py
+msgctxt "#32284"
+msgid "This Week"
+msgstr ""
+
+#: /resources/lib/basedir.py
+msgctxt "#32285"
+msgid "This Fortnight"
+msgstr ""
+
+#: /resources/lib/_trakt_itemlists.py
+msgctxt "#32286"
+msgid "Rank"
+msgstr ""
+
+#: /resources/lib/_trakt_itemlists.py
+msgctxt "#32287"
+msgid "Sort by"
+msgstr ""
+
 msgctxt "#30030"
 msgid "Hindi (India)"
 msgstr ""

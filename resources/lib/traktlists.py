@@ -1,4 +1,5 @@
 import random
+import resources.lib.utils as utils
 import resources.lib.plugin as plugin
 import resources.lib.constants as constants
 from resources.lib.traktapi import TraktAPI
@@ -57,9 +58,11 @@ class TraktLists():
 
     def list_userlist(self, list_slug, user_slug=None, page=None, **kwargs):
         response = TraktAPI().get_userlist(
+            page=page,
             list_slug=list_slug,
             user_slug=user_slug,
-            page=page,
+            sort_by=kwargs.get('sort_by', None),
+            sort_how=kwargs.get('sort_how', None),
             authorize=False if user_slug else True)
         if not response:
             return []
@@ -114,6 +117,17 @@ class TraktLists():
         items = TraktAPI().get_upnext_episodes_list(page=page)
         self.tmdb_cache_only = False
         # self.kodi_db = self.get_kodi_database(tmdb_type)
+        self.library = 'video'
+        self.container_content = 'episodes'
+        return items
+
+    def list_trakt_calendar(self, info, startdate, days, page=None, **kwargs):
+        items = TraktAPI().get_calendar_episodes_list(
+            utils.try_parse_int(startdate),
+            utils.try_parse_int(days),
+            page=page)
+        self.tmdb_cache_only = False
+        self.kodi_db = self.get_kodi_database('tv')
         self.library = 'video'
         self.container_content = 'episodes'
         return items

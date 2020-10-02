@@ -6,7 +6,7 @@ from resources.lib.requestapi import RequestAPI
 from resources.lib.plugin import ADDON
 from resources.lib._trakt_methods import _TraktMethodsMixin
 from resources.lib._trakt_sync import _TraktSyncMixin
-from resources.lib._trakt_items import _TraktItemLists
+from resources.lib._trakt_itemlists import _TraktItemLists
 from resources.lib._trakt_progress import _TraktProgressMixin
 
 

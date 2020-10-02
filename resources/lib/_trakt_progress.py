@@ -1,3 +1,4 @@
+import datetime
 import resources.lib.utils as utils
 from resources.lib.plugin import PLUGINPATH
 
@@ -128,3 +129,19 @@ class _TraktProgressMixin():
                 items.append(item)
         if not get_single_episode:
             return items  # TODO: Return first season if none for upnext season (maybe do elsewhere)
+
+    def get_calendar(self, tmdbtype, user=True, start_date=None, days=None):
+        user = 'my' if user else 'all'
+        return self.get_response_json('calendars', user, tmdbtype, start_date, days, extended='full')
+
+    def get_calendar_episodes(self, startdate=0, days=1):
+        if not self.authorize():
+            return
+
+        # Broaden date range in case utc conversion bumps into different day
+        mod_date = utils.try_parse_int(startdate) - 1
+        mod_days = utils.try_parse_int(days) + 2
+
+        # Get our calendar response
+        date = datetime.date.today() + datetime.timedelta(days=mod_date)
+        return self.get_calendar('shows', True, start_date=date.strftime('%Y-%m-%d'), days=mod_days)
