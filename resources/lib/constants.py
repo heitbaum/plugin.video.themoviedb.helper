@@ -214,6 +214,11 @@ TRAKT_BASIC_LISTS = {
     'trakt_recommendations': {
         'path': 'recommendations/{trakt_type}s?ignore_collected=true',
         'authorize': True
+    },
+    'trakt_myairing': {
+        'path': 'calendars/my/{trakt_type}s',
+        'item_key': '{trakt_type}',
+        'authorize': True
     }
 }
 
