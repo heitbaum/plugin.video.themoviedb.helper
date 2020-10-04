@@ -17,23 +17,36 @@ CLIENT_ID = 'e6fde6173adf3c6af8fd1b0694b9b84d7c519cefc24482310e1de06c6abe5467'
 CLIENT_SECRET = '15119384341d9a61c751d8d515acbc0dd801001d4ebe85d3eef9885df80ee4d9'
 
 
+def is_authorized(func):
+    def wrapper(self, *args, **kwargs):
+        if kwargs.get('authorize', True) and not self.authorize():
+            return
+        return func(self, *args, **kwargs)
+    return wrapper
+
+
 def use_activity_cache(activity_type=None, activity_key=None, cache_days=None, pickle_object=False):
-    """ Decorator to cache and refresh if last activity changes """
+    """
+    Decorator to cache and refresh if last activity changes
+    Optionally can pickle instead of cache if necessary (useful for large objects like sync lists)
+    """
     def decorator(func):
         def wrapper(self, *args, **kwargs):
             if not self.authorize():
                 return
+
+            # Setup getter/setter cache funcs
+            func_get = utils.get_pickle if pickle_object else cache.get_cache
+            func_set = utils.set_pickle if pickle_object else cache.set_cache
 
             # Set cache_name
             cache_name = '{}.'.format(func.__name__)
             cache_name = '{}.{}'.format(self.__class__.__name__, cache_name)
             cache_name = cache.format_name(cache_name, *args, **kwargs)
 
-            # Get our cached data
-            cache_object = utils.get_pickle(cache_name) if pickle_object else cache.get_cache(cache_name)
-
             # Cached response last_activity timestamp matches last_activity from trakt so no need to refresh
             last_activity = self._get_last_activity(activity_type, activity_key)
+            cache_object = func_get(cache_name) if last_activity else None
             if cache_object and cache_object.get('last_activity') == last_activity:
                 if cache_object.get('response'):
                     return cache_object['response']
@@ -42,8 +55,7 @@ def use_activity_cache(activity_type=None, activity_key=None, cache_days=None, p
             response = func(self, *args, **kwargs)
             if not response:
                 return
-            cache_func = utils.set_pickle if pickle_object else cache.set_cache
-            cache_func(
+            func_set(
                 {'response': response, 'last_activity': last_activity},
                 cache_name=cache_name, cache_days=cache_days)
             return response
@@ -70,24 +82,18 @@ class _TraktItemLists():
             return
         return TraktItems(response.json(), headers=response.headers, trakt_type=trakt_type).configure_items()
 
-    def get_basic_list(self, path, trakt_type, page=1, limit=20, params=None, authorize=False, sort_by=None, sort_how=None, extended=None):
-        if authorize and not self.authorize():
-            return
+    @is_authorized
+    def get_basic_list(self, path, trakt_type, page=1, limit=20, params=None, sort_by=None, sort_how=None, extended=None, authorize=False):
         # TODO: Add argument to check whether to refresh on first page (e.g. for user lists)
         # Also: Think about whether need to do it for standard response
         cache_refresh = True if utils.try_parse_int(page, fallback=1) == 1 else False
-        # Sorted list needs to be manually paginated because we need to pull ALL items first
-        if sort_by is not None:
-            trakt_items = self.get_sorted_list(
-                path, sort_by, sort_how, extended=extended, cache_refresh=cache_refresh)
-            response = PaginatedItems(items=trakt_items['items'], page=page, limit=limit).get_dict()
-        # Unsorted lists can be automatically paginated by the API since we don't need to sort them
-        # Can't pass all lists through get_sorted_list as 'unsorted' because some lists in API force pagination
-        else:
+        if sort_by is not None:  # Sorted list manually paginated because need to sort first
+            response = self.get_sorted_list(path, sort_by, sort_how, extended, cache_refresh=cache_refresh)
+            response = PaginatedItems(items=response['items'], page=page, limit=limit).get_dict()
+        else:  # Unsorted lists can be paginated by the API
             response = self.get_simple_list(path, extended=extended, page=page, limit=limit, trakt_type=trakt_type)
-        if not response:
-            return
-        return response['items'] + paginated.get_next_page(response['headers'])
+        if response:
+            return response['items'] + paginated.get_next_page(response['headers'])
 
     def get_custom_list(self, list_slug, user_slug=None, page=1, limit=20, params=None, authorize=False, sort_by=None, sort_how=None, extended=None):
         if authorize and not self.authorize():
@@ -95,16 +101,15 @@ class _TraktItemLists():
         path = 'users/{}/lists/{}/items'.format(user_slug or 'me', list_slug)
         # Refresh cache on first page for user list because it might've changed
         cache_refresh = True if utils.try_parse_int(page, fallback=1) == 1 else False
-        trakt_items = self.get_sorted_list(
-            path, sort_by, sort_how,
-            extended=extended,
+        sorted_items = self.get_sorted_list(
+            path, sort_by, sort_how, extended,
             permitted_types=['movie', 'show'],
             cache_refresh=cache_refresh)
-        paginated_items = PaginatedItems(items=trakt_items['items'], page=page, limit=limit)
+        paginated_items = PaginatedItems(items=sorted_items['items'], page=page, limit=limit)
         return {
             'items': paginated_items.items,
-            'movies': trakt_items.get('movies', []),
-            'tvshows': trakt_items.get('shows', []),
+            'movies': sorted_items.get('movies', []),
+            'tvshows': sorted_items.get('shows', []),
             'next_page': paginated_items.next_page}
 
     @use_activity_cache(cache_days=cache.CACHE_SHORT)
@@ -114,59 +119,44 @@ class _TraktItemLists():
             trakt_type=trakt_type).build_items(sort_by, sort_how)
 
     def get_sync_list(self, sync_type, trakt_type, page=1, limit=20, params=None, sort_by=None, sort_how=None, next_page=True):
-        trakt_items = self._get_sync_list(sync_type, trakt_type, sort_by=sort_by, sort_how=sort_how)
-        response = PaginatedItems(items=trakt_items['items'], page=page, limit=limit).get_dict()
-        if not response:
-            return
-        if not next_page:
-            return response['items']
-        return response['items'] + paginated.get_next_page(response['headers'])
+        response = self._get_sync_list(sync_type, trakt_type, sort_by=sort_by, sort_how=sort_how)
+        response = PaginatedItems(items=response['items'], page=page, limit=limit)
+        return response.items if not next_page else response.items + response.next_page
 
     def get_inprogress_shows_list(self, page=1, limit=20, params=None):
-        response = PaginatedItems(
-            items=TraktItems(self._get_inprogress_shows(), trakt_type='show').build_items()['items'],
-            page=page, limit=limit).get_dict()
-        if not response:
-            return
-        return response['items'] + paginated.get_next_page(response['headers'])
+        response = TraktItems(self._get_inprogress_shows(), trakt_type='show').build_items()
+        response = PaginatedItems(response['items'], page=page, limit=limit)
+        return response.items + response.next_page
 
     @use_activity_cache(cache_days=cache.CACHE_SHORT)
     def _get_upnext_episodes_list(self, page=1, limit=20, sort_by_premiered=False):
         items = []
-        for i in self._get_inprogress_shows():
-            next_episode = self.get_upnext_episodes(
-                uid=i.get('show', {}).get('ids', {}).get('slug'),
-                tvshow_details=i.get('show', {}),  # Pass show details so we don't need to relookup
-                get_single_episode=True)
-            if not next_episode:
-                continue
-            items.append(next_episode)
+        response = self._get_inprogress_shows() or []
+        for i in response:
+            slug = i.get('show', {}).get('ids', {}).get('slug')
+            next_episode = self.get_upnext_episodes(slug, tvshow_details=i.get('show', {}), get_single_episode=True)
+            if next_episode:
+                items.append(next_episode)
         if not sort_by_premiered:
             return items
         return sorted(items, key=lambda i: i.get('infolabels', {}).get('premiered'), reverse=True)
 
-    def get_upnext_episodes_list(self, page=1, limit=20, sort_by_premiered=True):
-        response = PaginatedItems(
-            self._get_upnext_episodes_list(page, limit, sort_by_premiered),
-            page=page, limit=utils.try_parse_int(limit) or 20)
+    def get_upnext_episodes_list(self, page=1, limit=20, sort_by_premiered=False):
+        response = self._get_upnext_episodes_list(page, limit, sort_by_premiered)
+        response = PaginatedItems(response, page=page, limit=utils.try_parse_int(limit) or 20)
         return response.items + response.next_page
 
     def get_upnext_list(self, unique_id, id_type='slug', page=1, limit=20):
-        slug = unique_id if id_type == 'slug' else self.get_id(
-            id_type=id_type, unique_id=unique_id, trakt_type='show', output_type='slug')
-        if not slug:
-            return
-        response = PaginatedItems(
-            self.get_upnext_episodes(slug),
-            page=page,
-            limit=utils.try_parse_int(limit) or 20)
-        if response and response.items:
+        if id_type != 'slug':
+            unique_id = self.get_id(id_type=id_type, unique_id=unique_id, trakt_type='show', output_type='slug')
+        if unique_id:
+            response = self.get_upnext_episodes(unique_id)
+            response = PaginatedItems(response, page=page, limit=utils.try_parse_int(limit) or 20)
             return response.items + response.next_page
 
+    @is_authorized
     def get_list_of_lists(self, path, page=1, limit=250, authorize=False):
-        if authorize and not self.authorize():
-            return
-        response = self.get_response(path, page=page, limit=limit)
+        response = self.get_response_json(path, page=page, limit=limit)
         if not response:
             return
         items = []
@@ -294,7 +284,8 @@ class _TraktProgressMixin():
         count = 0
         season = utils.try_parse_int(season) if season is not None else None
         tvshow = tvshow or self.get_sync('watched', 'show', id_type).get(unique_id, {})
-        reset_at = tvshow.get('reset_at')
+        # reset_at = tvshow.get('reset_at')
+        reset_at = None
         for i in tvshow.get('seasons', []):
             if season is not None and i.get('number', -1) != season:
                 continue
@@ -305,7 +296,8 @@ class _TraktProgressMixin():
 
     def _get_episodes_watchcount(self, episodes, reset_at=None):
         count = 0
-        reset_at = utils.convert_timestamp(reset_at) if reset_at else None
+        # reset_at = utils.convert_timestamp(reset_at) if reset_at else None
+        reset_at = None
         for episode in episodes:
             last_watched_at = episode.get('last_watched_at')
             if not last_watched_at:
@@ -320,28 +312,29 @@ class _TraktProgressMixin():
         return count
 
     def _is_inprogress_show(self, item, hidden_shows=[]):
-        if item.get('show', {}).get('ids', {}).get('slug') in hidden_shows:
+        slug = item.get('show', {}).get('ids', {}).get('slug')
+        if slug in hidden_shows:
             return
-        if not item.get('show', {}).get('aired_episodes'):
+        aired_episodes = item.get('show', {}).get('aired_episodes', 0)
+        if not aired_episodes:
             return
-        if item.get('show', {}).get('aired_episodes') > self.get_episodes_watchcount(
-                unique_id=item.get('show', {}).get('ids', {}).get('slug'),
-                id_type='slug', tvshow=item):
+        watch_episodes = self.get_episodes_watchcount(unique_id=slug, id_type='slug', tvshow=item)
+        if aired_episodes > watch_episodes:
             return item
 
+    @is_authorized
     @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
     def _get_inprogress_shows(self):
-        if not self.authorize():
-            return
-        recently_watched = TraktItems(self.get_sync('watched', 'show')).sort_items(
-            sort_by='watched', sort_how='desc')
+        response = self.get_sync('watched', 'show')
+        response = TraktItems(response).sort_items('watched', 'desc')
         hidden_shows = self.get_hiddenitems('show')
-        return [i for i in recently_watched if self._is_inprogress_show(i, hidden_shows)]
+        return [i for i in response if self._is_inprogress_show(i, hidden_shows)]
 
+    @is_authorized
     @use_activity_cache(cache_days=cache.CACHE_LONG)
     def get_hiddenitems(self, trakt_type, progress_watched=True, progress_collected=True, calendar=True, id_type='slug'):
         hidden_items = set()
-        if not self.authorize() or not trakt_type or not id_type:
+        if not trakt_type or not id_type:
             return hidden_items
         if progress_watched:
             response = self.get_response_json('users', 'hidden', 'progress_watched', type=trakt_type)
@@ -356,17 +349,14 @@ class _TraktProgressMixin():
 
     @use_activity_cache(cache_days=cache.CACHE_SHORT)
     def get_show_progress(self, uid, hidden=False, specials=False, count_specials=False):
-        if not uid:
-            return
-        return self.get_response_json('shows', uid, 'progress/watched')
+        return self.get_response_json('shows', uid, 'progress/watched') if uid else None
 
     @use_activity_cache(cache_days=cache.CACHE_SHORT)
     def get_upnext_episodes(self, uid, tvshow_details=None, get_single_episode=False):
         if not tvshow_details and uid:
             tvshow_details = self.get_details('show', uid)
-        if not tvshow_details or not tvshow_details.get('ids', {}).get('slug'):
-            return
-        return self._get_upnext_episodes(tvshow_details, get_single_episode=get_single_episode)
+        if tvshow_details and tvshow_details.get('ids', {}).get('slug'):
+            return self._get_upnext_episodes(tvshow_details, get_single_episode=get_single_episode)
 
     def _get_upnext_episodes(self, tvshow_details, get_single_episode=False):
         items = []
@@ -374,7 +364,8 @@ class _TraktProgressMixin():
         response = self.get_show_progress(slug)
         if not response:
             return
-        reset_at = utils.convert_timestamp(response['reset_at']) if response.get('reset_at') else None
+        # reset_at = utils.convert_timestamp(response['reset_at']) if response.get('reset_at') else None
+        reset_at = None
         for season in response.get('seasons') or []:
             s_num = season.get('number')
             for episode in season.get('episodes') or []:
@@ -423,16 +414,12 @@ class _TraktProgressMixin():
         user = 'my' if user else 'all'
         return self.get_response_json('calendars', user, tmdbtype, start_date, days, extended='full')
 
+    @is_authorized
     @use_activity_cache(cache_days=cache.CACHE_SHORT)
     def get_calendar_episodes(self, startdate=0, days=1):
-        if not self.authorize():
-            return
-
         # Broaden date range in case utc conversion bumps into different day
         mod_date = utils.try_parse_int(startdate) - 1
         mod_days = utils.try_parse_int(days) + 2
-
-        # Get our calendar response
         date = datetime.date.today() + datetime.timedelta(days=mod_date)
         return self.get_calendar('shows', True, start_date=date.strftime('%Y-%m-%d'), days=mod_days)
 
@@ -464,12 +451,10 @@ class _TraktSyncMixin():
             return activities.get('{}s'.format(activity_type), {})
         return activities.get('{}s'.format(activity_type), {}).get(activity_key)
 
+    @is_authorized
     def _get_last_activity(self, activity_type=None, activity_key=None):
-        if not self.authorize():
-            return
         if not self.last_activities:
             self.last_activities = self.get_response_json('sync/last_activities')
-            # self.last_activities = self.get_request('sync/last_activities', cache_days=0.0007)  # Cache for approx 1 minute to prevent rapid recalls
         return self._get_activity_timestamp(self.last_activities, activity_type=activity_type, activity_key=activity_key)
 
     @use_activity_cache(cache_days=cache.CACHE_SHORT, pickle_object=True)
@@ -477,10 +462,9 @@ class _TraktSyncMixin():
         """ Quick sub-cache routine to avoid recalling full sync list if we also want to quicklist it """
         return self.get_response_json(path, extended=extended, limit=0)
 
+    @is_authorized
     def _get_sync(self, path, trakt_type, id_type=None, extended=None):
         """ Get sync list """
-        if not self.authorize():
-            return
         response = self._get_sync_response(path, extended=extended)
         if not id_type:
             return response
@@ -496,7 +480,7 @@ class _TraktSyncMixin():
     # Watched shows sync uses short cache as needed for progress checks and new episodes might air tomorrow
     @use_activity_cache('episodes', 'watched_at', cache.CACHE_SHORT, pickle_object=True)
     def get_sync_watched_shows(self, trakt_type, id_type=None):
-        return self._get_sync('sync/watched/shows', 'show', id_type=id_type)
+        return self._get_sync('sync/watched/shows', 'show', id_type=id_type, extended='full')
 
     @use_activity_cache('movies', 'collected_at', cache.CACHE_LONG, pickle_object=True)
     def get_sync_collection_movies(self, trakt_type, id_type=None):
