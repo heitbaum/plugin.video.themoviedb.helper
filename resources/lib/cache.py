@@ -23,15 +23,13 @@ def use_simple_cache(cache_days=None):
 
 
 def get_cache(cache_name):
-    cache_name = cache_name or ''
-    # utils.kodi_log('GET CACHE: {}'.format(cache_name), 2)
+    cache_name = utils._get_pickle_name(cache_name or '')
     return _cache.get('{}.{}'.format(_cache_name, cache_name))
 
 
 def set_cache(my_object, cache_name, cache_days=14, force=False, fallback=None):
-    cache_name = cache_name or ''
+    cache_name = utils._get_pickle_name(cache_name or '')
     if my_object and cache_name and cache_days:
-        # utils.kodi_log('SET CACHE: {}'.format(cache_name), 2)
         _cache.set('{}.{}'.format(_cache_name, cache_name), my_object, expiration=datetime.timedelta(days=cache_days))
     elif force:
         my_object = my_object or fallback

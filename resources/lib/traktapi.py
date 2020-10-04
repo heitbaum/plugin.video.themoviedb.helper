@@ -17,14 +17,12 @@ CLIENT_ID = 'e6fde6173adf3c6af8fd1b0694b9b84d7c519cefc24482310e1de06c6abe5467'
 CLIENT_SECRET = '15119384341d9a61c751d8d515acbc0dd801001d4ebe85d3eef9885df80ee4d9'
 
 
-def use_activity_cache(activity_type=None, activity_key=None, cache_days=None):
+def use_activity_cache(activity_type=None, activity_key=None, cache_days=None, pickle_object=False):
     """ Decorator to cache and refresh if last activity changes """
     def decorator(func):
         def wrapper(self, *args, **kwargs):
             if not self.authorize():
                 return
-
-            decorator_kwargs = kwargs.pop('decorator_kwargs', None) or {}
 
             # Set cache_name
             cache_name = '{}.'.format(func.__name__)
@@ -32,12 +30,10 @@ def use_activity_cache(activity_type=None, activity_key=None, cache_days=None):
             cache_name = cache.format_name(cache_name, *args, **kwargs)
 
             # Get our cached data
-            cache_object = cache.get_cache(cache_name)
+            cache_object = utils.get_pickle(cache_name) if pickle_object else cache.get_cache(cache_name)
 
             # Cached response last_activity timestamp matches last_activity from trakt so no need to refresh
-            last_activity = self._get_last_activity(
-                activity_type=activity_type or decorator_kwargs.get('activity_type'),
-                activity_key=activity_key or decorator_kwargs.get('activity_key'))
+            last_activity = self._get_last_activity(activity_type, activity_key)
             if cache_object and cache_object.get('last_activity') == last_activity:
                 if cache_object.get('response'):
                     return cache_object['response']
@@ -46,7 +42,8 @@ def use_activity_cache(activity_type=None, activity_key=None, cache_days=None):
             response = func(self, *args, **kwargs)
             if not response:
                 return
-            cache.set_cache(
+            cache_func = utils.set_pickle if pickle_object else cache.set_cache
+            cache_func(
                 {'response': response, 'last_activity': last_activity},
                 cache_name=cache_name, cache_days=cache_days)
             return response
@@ -111,7 +108,7 @@ class _TraktItemLists():
             'next_page': paginated_items.next_page}
 
     @use_activity_cache(cache_days=cache.CACHE_SHORT)
-    def _get_sync_list(self, sync_type, trakt_type, sort_by=None, sort_how=None, decorator_kwargs=None):
+    def _get_sync_list(self, sync_type, trakt_type, sort_by=None, sort_how=None):
         return TraktItems(
             items=self.get_sync(sync_type, trakt_type),
             trakt_type=trakt_type).build_items(sort_by, sort_how)
@@ -143,22 +140,6 @@ class _TraktItemLists():
                 get_single_episode=True)
             if not next_episode:
                 continue
-            # If sorting by release date we need to look-up item details so may as well merge them too
-            if sort_by_premiered:
-                episode_details = self.get_details(
-                    trakt_type='show',
-                    id_num=next_episode.get('unique_ids', {}).get('tvshow.slug'),
-                    season=next_episode.get('infolabels', {}).get('season'),
-                    episode=next_episode.get('infolabels', {}).get('episode'))
-                air_date = utils.convert_timestamp(episode_details.get('first_aired'), utc_convert=True)
-                next_episode['infolabels']['premiered'] = air_date.strftime('%Y-%m-%d')
-                next_episode['infolabels']['year'] = air_date.strftime('%Y')
-                next_episode['infolabels']['duration'] = utils.try_parse_int(episode_details.get('runtime')) // 60
-                next_episode['infolabels']['plot'] = episode_details.get('overview')
-                next_episode['infolabels']['title'] = next_episode['label'] = episode_details.get('title')
-                for k, v in episode_details.get('ids', {}).items():
-                    if v and k not in next_episode['unique_ids']:
-                        next_episode['unique_ids'][k] = v
             items.append(next_episode)
         if not sort_by_premiered:
             return items
@@ -402,6 +383,7 @@ class _TraktProgressMixin():
                         continue  # Already watched and user hasn't restarted watching so not an upnext episode
                     elif utils.convert_timestamp(episode.get('last_watched_at')) >= reset_at:
                         continue  # Already watched since user restarted watching so not an upnext episode
+                e_num = episode.get('number')
                 item = {
                     'path': PLUGINPATH,
                     'params': {
@@ -409,17 +391,30 @@ class _TraktProgressMixin():
                         'tmdb_id': tvshow_details.get('ids', {}).get('tmdb'),
                         'tmdb_type': 'tv',
                         'season': s_num,
-                        'episode': episode.get('number')},
+                        'episode': e_num},
                     'art': {},
                     'infoproperties': {},
                     'infolabels': {
                         'tvshowtitle': tvshow_details.get('title'),
                         'mediatype': 'episode',
                         'season': s_num,
-                        'episode': episode.get('number')},
+                        'episode': e_num},
                     'unique_ids': {'tvshow.{}'.format(k): v for k, v in tvshow_details.get('ids', {}).items()}}
+
+                # Get some extra info about air date etc if only getting a single episode
                 if get_single_episode:
+                    episode_details = self.get_details('show', slug, s_num, e_num)
+                    air_date = utils.convert_timestamp(episode_details.get('first_aired'), utc_convert=True)
+                    item['infolabels']['premiered'] = air_date.strftime('%Y-%m-%d')
+                    item['infolabels']['year'] = air_date.strftime('%Y')
+                    item['infolabels']['duration'] = utils.try_parse_int(episode_details.get('runtime')) // 60
+                    item['infolabels']['plot'] = episode_details.get('overview')
+                    item['infolabels']['title'] = item['label'] = episode_details.get('title')
+                    for k, v in episode_details.get('ids', {}).items():
+                        if v and k not in item['unique_ids']:
+                            item['unique_ids'][k] = v
                     return item
+
                 items.append(item)
         if not get_single_episode:
             return items  # TODO: Return first season if none for upnext season (maybe do elsewhere)
@@ -473,14 +468,20 @@ class _TraktSyncMixin():
         if not self.authorize():
             return
         if not self.last_activities:
-            self.last_activities = self.get_request('sync/last_activities', cache_days=0.0007)  # Cache for approx 1 minute to prevent rapid recalls
+            self.last_activities = self.get_response_json('sync/last_activities')
+            # self.last_activities = self.get_request('sync/last_activities', cache_days=0.0007)  # Cache for approx 1 minute to prevent rapid recalls
         return self._get_activity_timestamp(self.last_activities, activity_type=activity_type, activity_key=activity_key)
+
+    @use_activity_cache(cache_days=cache.CACHE_SHORT, pickle_object=True)
+    def _get_sync_response(self, path, extended=None):
+        """ Quick sub-cache routine to avoid recalling full sync list if we also want to quicklist it """
+        return self.get_response_json(path, extended=extended, limit=0)
 
     def _get_sync(self, path, trakt_type, id_type=None, extended=None):
         """ Get sync list """
         if not self.authorize():
             return
-        response = self.get_response_json(path, extended=extended, limit=0)
+        response = self._get_sync_response(path, extended=extended)
         if not id_type:
             return response
         if response and trakt_type:
@@ -488,44 +489,44 @@ class _TraktSyncMixin():
                     for i in response
                     if i.get(trakt_type, {}).get('ids', {}).get(id_type)}
 
-    @use_activity_cache('movies', 'watched_at', cache.CACHE_LONG)
+    @use_activity_cache('movies', 'watched_at', cache.CACHE_LONG, pickle_object=True)
     def get_sync_watched_movies(self, trakt_type, id_type=None):
         return self._get_sync('sync/watched/movies', 'movie', id_type=id_type)
 
     # Watched shows sync uses short cache as needed for progress checks and new episodes might air tomorrow
-    @use_activity_cache('episodes', 'watched_at', cache.CACHE_SHORT)
+    @use_activity_cache('episodes', 'watched_at', cache.CACHE_SHORT, pickle_object=True)
     def get_sync_watched_shows(self, trakt_type, id_type=None):
         return self._get_sync('sync/watched/shows', 'show', id_type=id_type)
 
-    @use_activity_cache('movies', 'collected_at', cache.CACHE_LONG)
+    @use_activity_cache('movies', 'collected_at', cache.CACHE_LONG, pickle_object=True)
     def get_sync_collection_movies(self, trakt_type, id_type=None):
         return self._get_sync('sync/collection/movies', 'movie', id_type=id_type)
 
-    @use_activity_cache('episodes', 'collected_at', cache.CACHE_LONG)
+    @use_activity_cache('episodes', 'collected_at', cache.CACHE_LONG, pickle_object=True)
     def get_sync_collection_shows(self, trakt_type, id_type=None):
         return self._get_sync('sync/collection/shows', trakt_type, id_type=id_type)
 
-    @use_activity_cache('movies', 'watched_at', cache.CACHE_LONG)
+    @use_activity_cache('movies', 'watched_at', cache.CACHE_LONG, pickle_object=True)
     def get_sync_playback_movies(self, trakt_type, id_type=None):
         return self._get_sync('sync/playback/movies', 'movie', id_type=id_type)
 
-    @use_activity_cache('episodes', 'watched_at', cache.CACHE_LONG)
+    @use_activity_cache('episodes', 'watched_at', cache.CACHE_LONG, pickle_object=True)
     def get_sync_playback_shows(self, trakt_type, id_type=None):
         return self._get_sync('sync/playback/episodes', trakt_type, id_type=id_type)
 
-    @use_activity_cache('movies', 'watchlisted_at', cache.CACHE_LONG)
+    @use_activity_cache('movies', 'watchlisted_at', cache.CACHE_LONG, pickle_object=True)
     def get_sync_watchlist_movies(self, trakt_type, id_type=None):
         return self._get_sync('sync/watchlist/movies', 'movie', id_type=id_type)
 
-    @use_activity_cache('shows', 'watchlisted_at', cache.CACHE_LONG)
+    @use_activity_cache('shows', 'watchlisted_at', cache.CACHE_LONG, pickle_object=True)
     def get_sync_watchlist_shows(self, trakt_type, id_type=None):
         return self._get_sync('sync/watchlist/shows', 'shows', id_type=id_type)
 
-    @use_activity_cache('movies', 'recommendations_at', cache.CACHE_LONG)
+    @use_activity_cache('movies', 'recommendations_at', cache.CACHE_LONG, pickle_object=True)
     def get_sync_recommendations_movies(self, trakt_type, id_type=None):
         return self._get_sync('sync/recommendations/movies', 'movie', id_type=id_type)
 
-    @use_activity_cache('shows', 'recommendations_at', cache.CACHE_LONG)
+    @use_activity_cache('shows', 'recommendations_at', cache.CACHE_LONG, pickle_object=True)
     def get_sync_recommendations_shows(self, trakt_type, id_type=None):
         return self._get_sync('sync/recommendations/shows', 'shows', id_type=id_type)
 

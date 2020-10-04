@@ -6,8 +6,10 @@ import time
 import xbmcgui
 import xbmcvfs
 import datetime
+import unicodedata
 from copy import copy
 from resources.lib.plugin import ADDON, PLUGINPATH, ADDONDATA
+from resources.lib.constants import VALID_FILECHARS
 from contextlib import contextmanager
 try:
     from urllib.parse import urlencode, unquote_plus  # Py3
@@ -115,6 +117,19 @@ def get_timestamp(timestamp=None):
 
 def set_timestamp(wait_time=60):
     return time.time() + wait_time
+
+
+def validify_filename(filename):
+    try:
+        filename = unicode(filename, 'utf-8')
+    except NameError:  # unicode is a default on python 3
+        pass
+    except TypeError:  # already unicode
+        pass
+    filename = str(unicodedata.normalize('NFD', filename).encode('ascii', 'ignore').decode("utf-8"))
+    filename = ''.join(c for c in filename if c in VALID_FILECHARS)
+    filename = filename[:-1] if filename.endswith('.') else filename
+    return filename
 
 
 def dictify(r, root=True):
@@ -285,23 +300,36 @@ def _get_pickle_path():
     return main_dir
 
 
-def set_pickle(my_object, pickle_name):
-    if not my_object or not pickle_name:
+def _get_pickle_name(cache_name):
+    cache_name = cache_name or ''
+    cache_name = cache_name.replace('\\', '_').replace('/', '_').replace('.', '_').replace('?', '_').replace('&', '_').replace('=', '_').replace('__', '_')
+    return validify_filename(cache_name)
+
+
+def set_pickle(my_object, cache_name, cache_days=14):
+    if not my_object:
         return
-    with open(os.path.join(_get_pickle_path(), pickle_name), 'wb') as file:
-        _pickle.dump(my_object, file)
+    cache_name = _get_pickle_name(cache_name)
+    if not cache_name:
+        return
+    timestamp = datetime.datetime.now() + datetime.timedelta(days=cache_days)
+    cache_obj = {'my_object': my_object, 'expires': timestamp.strftime("%Y-%m-%dT%H:%M:%S")}
+    with open(os.path.join(_get_pickle_path(), cache_name), 'wb') as file:
+        _pickle.dump(cache_obj, file)
     return my_object
 
 
-def get_pickle(pickle_name):
-    if not pickle_name:
+def get_pickle(cache_name):
+    cache_name = _get_pickle_name(cache_name)
+    if not cache_name:
         return
     try:
-        with open(os.path.join(_get_pickle_path(), pickle_name), 'rb') as file:
-            my_object = _pickle.load(file)
+        with open(os.path.join(_get_pickle_path(), cache_name), 'rb') as file:
+            cache_obj = _pickle.load(file)
     except IOError:
-        my_object = None
-    return my_object
+        cache_obj = None
+    if cache_obj and is_future_timestamp(cache_obj.get('expires', '')):
+        return cache_obj.get('my_object')
 
 
 def use_pickle(func, *args, **kwargs):
