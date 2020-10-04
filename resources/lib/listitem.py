@@ -45,6 +45,16 @@ class ListItem(object):
             self.art['fanart'] = '{}/fanart.jpg'.format(ADDONPATH)
         return self.art
 
+    def get_trakt_type(self):
+        if self.infolabels.get('mediatype') == 'movie':
+            return 'movie'
+        if self.infolabels.get('mediatype') == 'tvshow':
+            return 'show'
+        if self.infolabels.get('mediatype') == 'season':
+            return 'season'
+        if self.infolabels.get('mediatype') == 'episode':
+            return 'episode'
+
     def get_tmdb_type(self):
         if self.infolabels.get('mediatype') == 'movie':
             return 'movie'
@@ -117,10 +127,24 @@ class ListItem(object):
             path = '{},episode={}'.format(path, self.infolabels.get('episode'))
         return [(ADDON.getLocalizedString(32235), 'RunScript(plugin.video.themoviedb.helper,{})'.format(path))]
 
+    def _context_item_trakt_sync(self):
+        tmdb_id = self.get_tmdb_id()
+        trakt_type = self.get_trakt_type()
+        if not trakt_type or not tmdb_id:
+            return []
+        path = 'sync_item,trakt_type={},unique_id={},id_type=tmdb'.format(trakt_type, tmdb_id)
+        if self.infolabels.get('mediatype') == 'season':
+            path = '{},season={}'.format(path, self.infolabels.get('season'))
+        elif self.infolabels.get('mediatype') == 'episode':
+            path = '{},season={}'.format(path, self.infolabels.get('season'))
+            path = '{},episode={}'.format(path, self.infolabels.get('episode'))
+        return [('Trakt management', 'RunScript(plugin.video.themoviedb.helper,{})'.format(path))]
+
     def set_standard_context_menu(self):
         self.context_menu += self._context_item_related_lists()
         self.context_menu += self._context_item_get_ftv_artwork()
         self.context_menu += self._context_item_refresh_details()
+        self.context_menu += self._context_item_trakt_sync()
         return self.context_menu
 
     def set_playcount(self, playcount):

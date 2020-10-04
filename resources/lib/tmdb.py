@@ -28,12 +28,8 @@ class TMDb(RequestAPI):
             self,
             api_key='a07324c669cac4d96789197134ce272b',
             language=plugin.get_language(),
-            mpaa_prefix=plugin.get_mpaa_prefix(),
-            cache_short=ADDON.getSettingInt('cache_list_days'),
-            cache_long=ADDON.getSettingInt('cache_details_days')):
+            mpaa_prefix=plugin.get_mpaa_prefix()):
         super(TMDb, self).__init__(
-            cache_short=cache_short,
-            cache_long=cache_long,
             req_api_name='TMDb',
             req_api_url=API_URL,
             req_api_key='api_key={}'.format(api_key))
@@ -397,7 +393,7 @@ class TMDb(RequestAPI):
             self.get_info, tmdb_type=tmdb_type,
             item=self._get_details_request(tmdb_type, tmdb_id, cache_only=cache_only, cache_refresh=cache_refresh),
             cache_name='detailed.item.{}.{}.{}.{}'.format(tmdb_type, tmdb_id, None, None),
-            cache_days=self.cache_long, cache_only=cache_only, cache_refresh=cache_refresh)
+            cache_days=cache.CACHE_LONG, cache_only=cache_only, cache_refresh=cache_refresh)
 
         # If we're getting season/episode details we need to add them to the base tv details
         if tmdb_type == 'tv' and season is not None:
@@ -405,7 +401,7 @@ class TMDb(RequestAPI):
                 self.get_info, tmdb_type='tv',
                 item=self._get_details_request(tmdb_type, tmdb_id, season, episode, cache_only, cache_refresh),
                 cache_name='detailed.item.{}.{}.{}.{}'.format(tmdb_type, tmdb_id, season, episode),
-                cache_days=self.cache_long, cache_only=cache_only, cache_refresh=cache_refresh)
+                cache_days=cache.CACHE_LONG, cache_only=cache_only, cache_refresh=cache_refresh)
             if item:
                 item = utils.merge_two_items(base_item, item)
                 item['infolabels']['tvshowtitle'] = base_item.get('infolabels', {}).get('title')
@@ -418,7 +414,7 @@ class TMDb(RequestAPI):
 
         # Save our item as a quick cache object so we don't need to remerge season/episodes every time
         return cache.set_cache(
-            base_item, cache_days=self.cache_long,
+            base_item, cache_days=cache.CACHE_LONG,
             cache_name='detailed.quick.item.{}.{}.{}.{}'.format(tmdb_type, tmdb_id, season, episode))
 
     def get_season_list(self, tmdb_id):
@@ -571,14 +567,14 @@ class TMDb(RequestAPI):
 
     def get_request_sc(self, *args, **kwargs):
         """ Get API request using the short cache """
-        kwargs['cache_days'] = self.cache_short
+        kwargs['cache_days'] = cache.CACHE_SHORT
         kwargs['region'] = self.iso_country
         kwargs['language'] = self.req_language
         return self.get_request(*args, **kwargs)
 
     def get_request_lc(self, *args, **kwargs):
         """ Get API request using the long cache """
-        kwargs['cache_days'] = self.cache_long
+        kwargs['cache_days'] = cache.CACHE_LONG
         kwargs['region'] = self.iso_country
         kwargs['language'] = self.req_language
         return self.get_request(*args, **kwargs)

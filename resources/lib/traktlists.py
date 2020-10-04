@@ -3,6 +3,7 @@ import resources.lib.utils as utils
 import resources.lib.plugin as plugin
 import resources.lib.constants as constants
 from resources.lib.traktapi import TraktAPI
+from resources.lib.plugin import ADDON
 
 
 class TraktLists():
@@ -12,7 +13,6 @@ class TraktLists():
         trakt_type = plugin.convert_type(tmdb_type, plugin.TYPE_TRAKT)
         items = TraktAPI().get_basic_list(
             path=info_model.get('path', '').format(trakt_type=trakt_type, **kwargs),
-            item_key=info_model.get('item_key', '').format(trakt_type=trakt_type, **kwargs),
             trakt_type=trakt_type,
             params=info_model.get('params'),
             page=page,
@@ -29,14 +29,9 @@ class TraktLists():
     def list_sync(self, info, tmdb_type, page=None, **kwargs):
         info_model = constants.TRAKT_SYNC_LISTS.get(info)
         info_tmdb_type = info_model.get('tmdb_type') or tmdb_type
-        trakt_type = plugin.convert_type(tmdb_type, plugin.TYPE_TRAKT)
-        activity_type = 'episode' if trakt_type == 'show' and not info_model.get('use_show_activity') else trakt_type
-        items = TraktAPI().get_synclist_cached(
+        items = TraktAPI().get_sync_list(
             sync_type=info_model.get('sync_type', ''),
-            trakt_type=trakt_type,
-            activity_type=activity_type,
-            activity_key=info_model.get('activity_key', ''),
-            item_key=info_model.get('item_key', '').format(trakt_type=trakt_type, **kwargs),
+            trakt_type=plugin.convert_type(tmdb_type, plugin.TYPE_TRAKT),
             page=page,
             params=info_model.get('params'),
             sort_by=info_model.get('sort_by', None),
@@ -57,8 +52,8 @@ class TraktLists():
         return items
 
     def list_userlist(self, list_slug, user_slug=None, page=None, **kwargs):
-        response = TraktAPI().get_userlist(
-            page=page,
+        response = TraktAPI().get_custom_list(
+            page=page or 1,
             list_slug=list_slug,
             user_slug=user_slug,
             sort_by=kwargs.get('sort_by', None),
@@ -76,13 +71,9 @@ class TraktLists():
 
     def list_becauseyouwatched(self, info, tmdb_type, page=None, **kwargs):
         trakt_type = plugin.convert_type(tmdb_type, plugin.TYPE_TRAKT)
-        activity_type = 'episode' if trakt_type == 'show' else trakt_type
-        watched_items = TraktAPI().get_synclist_cached(
+        watched_items = TraktAPI().get_sync_list(
             sync_type='watched',
             trakt_type=trakt_type,
-            activity_type=activity_type,
-            activity_key='watched_at',
-            item_key=trakt_type,
             page=1,
             limit=5,
             next_page=False,
@@ -90,7 +81,7 @@ class TraktLists():
             sort_by='plays' if info == 'trakt_becausemostwatched' else 'watched',
             sort_how='desc')
         item = watched_items[random.randint(0, len(watched_items) - 1)]
-        self.plugin_category = 'Because you watched {}'.format(item.get('label'))
+        self.plugin_category = '{} {}'.format(ADDON.getLocalizedString(32288), item.get('label'))
         return self.list_tmdb(
             info='recommendations',
             tmdb_type=item.get('params', {}).get('tmdb_type'),

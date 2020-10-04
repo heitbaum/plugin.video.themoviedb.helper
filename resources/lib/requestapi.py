@@ -6,14 +6,12 @@ import resources.lib.cache as cache
 
 
 class RequestAPI(object):
-    def __init__(self, cache_short=None, cache_long=None, req_api_url=None, req_api_key=None, req_api_name=None, timeout=None):
+    def __init__(self, req_api_url=None, req_api_key=None, req_api_name=None, timeout=None):
         self.req_api_url = req_api_url or ''
         self.req_api_key = req_api_key or ''
         self.req_api_name = req_api_name or ''
         self.req_connect_err_prop = 'TMDbHelper.ConnectionError.{}'.format(self.req_api_name)
         self.req_connect_err = utils.try_parse_float(xbmcgui.Window(10000).getProperty(self.req_connect_err_prop)) or 0
-        self.cache_long = 14 if not cache_long or cache_long < 14 else cache_long
-        self.cache_short = 1 if not cache_short or cache_short < 1 else cache_short
         self.headers = None
         self.timeout = timeout or 10
 
@@ -84,12 +82,12 @@ class RequestAPI(object):
 
     def get_request_sc(self, *args, **kwargs):
         """ Get API request using the short cache """
-        kwargs['cache_days'] = self.cache_short
+        kwargs['cache_days'] = cache.CACHE_SHORT
         return self.get_request(*args, **kwargs)
 
     def get_request_lc(self, *args, **kwargs):
         """ Get API request using the long cache """
-        kwargs['cache_days'] = self.cache_long
+        kwargs['cache_days'] = cache.CACHE_LONG
         return self.get_request(*args, **kwargs)
 
     def get_request(self, *args, **kwargs):

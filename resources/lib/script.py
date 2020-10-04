@@ -9,6 +9,7 @@ import resources.lib.utils as utils
 import resources.lib.basedir as basedir
 from resources.lib.fanarttv import FanartTV
 from resources.lib.tmdb import TMDb
+from resources.lib.traktapi import TraktAPI
 from resources.lib.plugin import ADDON
 
 
@@ -27,6 +28,30 @@ class Script(object):
             else:
                 params.setdefault(arg, True)
         return params
+
+    def sync_item(
+            self, trakt_type=None, unique_id=None,
+            id_type=None, season=None, episode=None, **kwargs):
+        choices = [
+            {'name': 'Add to watched history', 'method': 'history'},
+            {'name': 'Remove from watched history', 'method': 'history/remove'},
+            {'name': 'Add to collection', 'method': 'collection'},
+            {'name': 'Remove from collection', 'method': 'collection/remove'},
+            {'name': 'Add to watchlist', 'method': 'watchlist'},
+            {'name': 'Remove from watchlist', 'method': 'watchlist/remove'},
+            {'name': 'Add to recommendations', 'method': 'recommendations'},
+            {'name': 'Remove from recommendations', 'method': 'recommendations/remove'}]
+        # TODO: Use Trakt Sync to Check if Item in various lists before presenting options
+        choice = xbmcgui.Dialog().contextmenu([i.get('name') for i in choices])
+        if choice == -1:
+            return
+        with utils.busy_dialog():
+            item_sync = TraktAPI().sync_item(
+                choices[choice].get('method'), trakt_type, unique_id, id_type,
+                season=season, episode=episode)
+        if item_sync:
+            xbmc.executebuiltin('Container.Refresh')
+            return  # TODO: Check success or failure
 
     def manage_artwork(self, ftv_id=None, ftv_type=None, **kwargs):
         if not ftv_id or not ftv_type:
@@ -79,6 +104,8 @@ class Script(object):
         self.params = self.get_params()
         if not self.params:
             return
+        if self.params.get('sync_item'):
+            return self.sync_item(**self.params)
         if self.params.get('manage_artwork'):
             return self.manage_artwork(**self.params)
         if self.params.get('refresh_details'):

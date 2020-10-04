@@ -194,22 +194,18 @@ TMDB_BASIC_LISTS = {
 TRAKT_BASIC_LISTS = {
     'trakt_trending': {
         'path': '{trakt_type}s/trending',
-        'item_key': '{trakt_type}'
     },
     'trakt_popular': {
         'path': '{trakt_type}s/popular'
     },
     'trakt_mostplayed': {
         'path': '{trakt_type}s/played/weekly',
-        'item_key': '{trakt_type}'
     },
     'trakt_anticipated': {
         'path': '{trakt_type}s/anticipated',
-        'item_key': '{trakt_type}'
     },
     'trakt_boxoffice': {
         'path': '{trakt_type}s/boxoffice',
-        'item_key': '{trakt_type}'
     },
     'trakt_recommendations': {
         'path': 'recommendations/{trakt_type}s?ignore_collected=true',
@@ -217,7 +213,6 @@ TRAKT_BASIC_LISTS = {
     },
     'trakt_myairing': {
         'path': 'calendars/my/{trakt_type}s',
-        'item_key': '{trakt_type}',
         'authorize': True
     }
 }
@@ -226,36 +221,26 @@ TRAKT_BASIC_LISTS = {
 TRAKT_SYNC_LISTS = {
     'trakt_collection': {
         'sync_type': 'collection',
-        'activity_key': 'collected_at',
-        'item_key': '{trakt_type}',
         'sort_by': 'title',
         'sort_how': 'asc'
     },
     'trakt_watchlist': {
         'sync_type': 'watchlist',
         'use_show_activity': True,
-        'activity_key': 'watchlisted_at',
-        'item_key': '{trakt_type}',
         'sort_by': 'unsorted'
     },
     'trakt_history': {
         'sync_type': 'watched',
-        'activity_key': 'watched_at',
-        'item_key': '{trakt_type}',
         'sort_by': 'watched',
         'sort_how': 'desc'
     },
     'trakt_mostwatched': {
         'sync_type': 'watched',
-        'activity_key': 'watched_at',
-        'item_key': '{trakt_type}',
         'sort_by': 'plays',
         'sort_how': 'desc'
     },
     'trakt_inprogress': {
         'sync_type': 'playback',
-        'activity_key': 'watched_at',
-        'item_key': '{trakt_type}',
         'sort_by': 'paused',
         'sort_how': 'desc'
     }

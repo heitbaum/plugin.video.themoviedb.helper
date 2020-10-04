@@ -1,8 +1,25 @@
+import sys
 import datetime
 import simplecache
 import resources.lib.utils as utils
 _cache = simplecache.SimpleCache()
 _cache_name = 'TMDbHelper_v4'
+if sys.version_info[0] >= 3:
+    unicode = str  # In Py3 str is now unicode
+CACHE_LONG = 14
+CACHE_SHORT = 1
+
+
+def use_simple_cache(cache_days=None):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            kwargs['cache_days'] = cache_days or kwargs.get('cache_days', None)
+            kwargs['cache_combine_name'] = True
+            kwargs['cache_name'] = '{}.'.format(func.__name__)
+            kwargs['cache_name'] = '{}.{}'.format(args[0].__class__.__name__, kwargs['cache_name'])
+            return use_cache(func, *args, **kwargs)
+        return wrapper
+    return decorator
 
 
 def get_cache(cache_name):
@@ -23,28 +40,35 @@ def set_cache(my_object, cache_name, cache_days=14, force=False, fallback=None):
     return my_object
 
 
+def format_name(cache_name, *args, **kwargs):
+    # Define a type whitelist to avoiding adding non-basic types like classes to cache name
+    permitted_types = [unicode, int, float, str, bool]
+    for arg in args:
+        if not arg or type(arg) not in permitted_types:
+            continue
+        cache_name = u'{0}/{1}'.format(cache_name, arg) if cache_name else u'{}'.format(arg)
+    for key, value in kwargs.items():
+        if not value or type(value) not in permitted_types:
+            continue
+        cache_name = u'{0}&{1}={2}'.format(cache_name, key, value) if cache_name else u'{0}={1}'.format(key, value)
+    return cache_name
+
+
 def use_cache(func, *args, **kwargs):
     """
     Simplecache takes func with args and kwargs
     Returns the cached item if it exists otherwise does the function
     """
-    cache_days = kwargs.pop('cache_days', 14)
+    cache_days = kwargs.pop('cache_days', 14) or 14
     cache_name = kwargs.pop('cache_name', '') or ''
-    cache_only = kwargs.pop('cache_only', False)
-    cache_force = kwargs.pop('cache_force', False)
-    cache_fallback = kwargs.pop('cache_fallback', False)
-    cache_refresh = kwargs.pop('cache_refresh', False)
-    cache_combine_name = kwargs.pop('cache_combine_name', False)
-    headers = kwargs.pop('headers', None)
+    cache_only = kwargs.pop('cache_only', False) or False
+    cache_force = kwargs.pop('cache_force', False) or False
+    cache_fallback = kwargs.pop('cache_fallback', False) or False
+    cache_refresh = kwargs.pop('cache_refresh', False) or False
+    cache_combine_name = kwargs.pop('cache_combine_name', False) or False
+    headers = kwargs.pop('headers', None) or None
     if not cache_name or cache_combine_name:
-        for arg in args:
-            if not arg:
-                continue
-            cache_name = u'{0}/{1}'.format(cache_name, arg) if cache_name else u'{}'.format(arg)
-        for key, value in kwargs.items():
-            if not value:
-                continue
-            cache_name = u'{0}&{1}={2}'.format(cache_name, key, value) if cache_name else u'{0}={1}'.format(key, value)
+        cache_name = format_name(cache_name, *args, **kwargs)
     my_cache = get_cache(cache_name) if not cache_refresh else None
     if my_cache:
         return my_cache

@@ -34,13 +34,9 @@ class FanartTV(RequestAPI):
             api_key='fcca59bee130b70db37ee43e63f8d6c1',
             client_key=ADDON.getSettingString('fanarttv_clientkey'),
             language=plugin.get_language(),
-            cache_short=ADDON.getSettingInt('cache_list_days'),
-            cache_long=ADDON.getSettingInt('cache_details_days'),
             cache_only=False,
             cache_refresh=False):
         super(FanartTV, self).__init__(
-            cache_short=cache_short,
-            cache_long=cache_long,
             req_api_name='FanartTV',
             req_api_url=API_URL,
             req_api_key='api_key={}'.format(api_key))

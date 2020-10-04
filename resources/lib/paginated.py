@@ -29,3 +29,6 @@ class PaginatedItems():
 
     def json(self):
         return self.items
+
+    def get_dict(self):
+        return {'items': self.items, 'headers': self.headers}

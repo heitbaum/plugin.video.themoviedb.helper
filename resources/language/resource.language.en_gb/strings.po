@@ -1448,6 +1448,11 @@ msgctxt "#32287"
 msgid "Sort by"
 msgstr ""
 
+#: /resources/lib/traktlists.py
+msgctxt "#32288"
+msgid "Because you watched"
+msgstr ""
+
 msgctxt "#30030"
 msgid "Hindi (India)"
 msgstr ""
