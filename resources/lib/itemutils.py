@@ -109,16 +109,16 @@ class ItemUtils(object):
                 episode=listitem.infolabels.get('episode'))
         if listitem.infolabels.get('mediatype') == 'tvshow':
             listitem.infolabels['episode'] = self.trakt_api.get_episodes_airedcount(
-                unique_id=utils.try_parse_int(listitem.unique_ids.get('tmdb')),
-                id_type='tmdb')
+                id_type='tmdb',
+                unique_id=utils.try_parse_int(listitem.unique_ids.get('tmdb')))
             return self.trakt_api.get_episodes_watchcount(
                 id_type='tmdb',
                 unique_id=utils.try_parse_int(listitem.unique_ids.get('tmdb')))
         if listitem.infolabels.get('mediatype') == 'season':
             listitem.infolabels['episode'] = self.trakt_api.get_episodes_airedcount(
+                id_type='tmdb',
                 unique_id=utils.try_parse_int(listitem.unique_ids.get('tmdb')),
-                season=listitem.infolabels.get('season'),
-                id_type='tmdb')
+                season=listitem.infolabels.get('season'))
             return self.trakt_api.get_episodes_watchcount(
                 id_type='tmdb',
                 unique_id=utils.try_parse_int(listitem.unique_ids.get('tmdb')),

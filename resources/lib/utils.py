@@ -3,6 +3,7 @@ import os
 import sys
 import xbmc
 import time
+import json
 import xbmcgui
 import xbmcvfs
 import datetime
@@ -293,8 +294,13 @@ def read_file(filepath):
     return content
 
 
-def _get_pickle_path():
-    main_dir = os.path.join(xbmc.translatePath(ADDONDATA), 'pickle')
+def dumps_to_file(data, folder, filename, indent=2):
+    with open(os.path.join(_get_write_path(folder), filename), 'w') as file:
+        json.dump(data, file, indent=indent)
+
+
+def _get_write_path(folder):
+    main_dir = os.path.join(xbmc.translatePath(ADDONDATA), folder)
     if not os.path.exists(main_dir):
         os.makedirs(main_dir)
     return main_dir
@@ -314,7 +320,7 @@ def set_pickle(my_object, cache_name, cache_days=14):
         return
     timestamp = datetime.datetime.now() + datetime.timedelta(days=cache_days)
     cache_obj = {'my_object': my_object, 'expires': timestamp.strftime("%Y-%m-%dT%H:%M:%S")}
-    with open(os.path.join(_get_pickle_path(), cache_name), 'wb') as file:
+    with open(os.path.join(_get_write_path('pickle'), cache_name), 'wb') as file:
         _pickle.dump(cache_obj, file)
     return my_object
 
@@ -324,7 +330,7 @@ def get_pickle(cache_name):
     if not cache_name:
         return
     try:
-        with open(os.path.join(_get_pickle_path(), cache_name), 'rb') as file:
+        with open(os.path.join(_get_write_path('pickle'), cache_name), 'rb') as file:
             cache_obj = _pickle.load(file)
     except IOError:
         cache_obj = None

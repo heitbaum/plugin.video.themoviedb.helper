@@ -1453,6 +1453,51 @@ msgctxt "#32288"
 msgid "Because you watched"
 msgstr ""
 
+#: /resources/lib/script.py
+msgctxt "#32289"
+msgid "Add to collection"
+msgstr ""
+
+#: /resources/lib/script.py
+msgctxt "#32290"
+msgid "Remove from collection"
+msgstr ""
+
+#: /resources/lib/script.py
+msgctxt "#32291"
+msgid "Add to watchlist"
+msgstr ""
+
+#: /resources/lib/script.py
+msgctxt "#32292"
+msgid "Remove from watchlist"
+msgstr ""
+
+#: /resources/lib/script.py
+msgctxt "#32293"
+msgid "Add to recommendations"
+msgstr ""
+
+#: /resources/lib/script.py
+msgctxt "#32294"
+msgid "Remove from recommendations"
+msgstr ""
+
+#: /resources/lib/script.py
+msgctxt "#32295"
+msgid "Trakt management"
+msgstr ""
+
+#: /resources/lib/script.py
+msgctxt "#32296"
+msgid "{} failed for {}!\n{} ID {}"
+msgstr ""
+
+#: /resources/lib/script.py
+msgctxt "#32297"
+msgid "{} was successful for {}!\n{} ID {}"
+msgstr ""
+
 msgctxt "#30030"
 msgid "Hindi (India)"
 msgstr ""

@@ -8,6 +8,7 @@ if sys.version_info[0] >= 3:
     unicode = str  # In Py3 str is now unicode
 CACHE_LONG = 14
 CACHE_SHORT = 1
+CACHE_EXTENDED = 90
 
 
 def use_simple_cache(cache_days=None):

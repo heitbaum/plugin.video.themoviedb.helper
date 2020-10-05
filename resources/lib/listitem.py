@@ -134,11 +134,15 @@ class ListItem(object):
             return []
         path = 'sync_item,trakt_type={},unique_id={},id_type=tmdb'.format(trakt_type, tmdb_id)
         if self.infolabels.get('mediatype') == 'season':
-            path = '{},season={}'.format(path, self.infolabels.get('season'))
+            return []
+            # Seasons disabled for now as difficult to manage properly TODO: FIX IT!
+            # path = '{},season={}'.format(path, self.infolabels.get('season'))
         elif self.infolabels.get('mediatype') == 'episode':
             path = '{},season={}'.format(path, self.infolabels.get('season'))
             path = '{},episode={}'.format(path, self.infolabels.get('episode'))
-        return [('Trakt management', 'RunScript(plugin.video.themoviedb.helper,{})'.format(path))]
+        return [(
+            ADDON.getLocalizedString(32295),
+            'RunScript(plugin.video.themoviedb.helper,{})'.format(path))]
 
     def set_standard_context_menu(self):
         self.context_menu += self._context_item_related_lists()

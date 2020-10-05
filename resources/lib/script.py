@@ -29,19 +29,46 @@ class Script(object):
                 params.setdefault(arg, True)
         return params
 
-    def sync_item(
-            self, trakt_type=None, unique_id=None,
-            id_type=None, season=None, episode=None, **kwargs):
-        choices = [
-            {'name': 'Add to watched history', 'method': 'history'},
-            {'name': 'Remove from watched history', 'method': 'history/remove'},
-            {'name': 'Add to collection', 'method': 'collection'},
-            {'name': 'Remove from collection', 'method': 'collection/remove'},
-            {'name': 'Add to watchlist', 'method': 'watchlist'},
-            {'name': 'Remove from watchlist', 'method': 'watchlist/remove'},
-            {'name': 'Add to recommendations', 'method': 'recommendations'},
-            {'name': 'Remove from recommendations', 'method': 'recommendations/remove'}]
-        # TODO: Use Trakt Sync to Check if Item in various lists before presenting options
+    def _sync_item_methods(self):
+        return [
+            {
+                'method': 'history',
+                'sync_type': 'watched',
+                'allow_episodes': True,
+                'name_add': xbmc.getLocalizedString(16103),
+                'name_remove': xbmc.getLocalizedString(16104)},
+            {
+                'method': 'collection',
+                'sync_type': 'collection',
+                'allow_episodes': True,
+                'name_add': ADDON.getLocalizedString(32289),
+                'name_remove': ADDON.getLocalizedString(32290)},
+            {
+                'method': 'watchlist',
+                'sync_type': 'watchlist',
+                'name_add': ADDON.getLocalizedString(32291),
+                'name_remove': ADDON.getLocalizedString(32292)},
+            {
+                'method': 'recommendations',
+                'sync_type': 'recommendations',
+                'name_add': ADDON.getLocalizedString(32293),
+                'name_remove': ADDON.getLocalizedString(32294)}]
+
+    def _sync_item_check(
+            self, trakt_type, unique_id, season=None, episode=None, id_type=None,
+            sync_type=None, method=None, name_add=None, name_remove=None, allow_episodes=False):
+        if season is not None and (not allow_episodes or not episode):
+            return
+        if TraktAPI().is_sync(trakt_type, unique_id, season, episode, id_type, sync_type):
+            return {'name': name_remove, 'method': '{}/remove'.format(method)}
+        return {'name': name_add, 'method': method}
+
+    def sync_item(self, trakt_type=None, unique_id=None, season=None, episode=None, id_type=None, **kwargs):
+        with utils.busy_dialog():
+            choices = [
+                j for j in (
+                    self._sync_item_check(trakt_type, unique_id, season, episode, id_type, **i)
+                    for i in self._sync_item_methods()) if j]
         choice = xbmcgui.Dialog().contextmenu([i.get('name') for i in choices])
         if choice == -1:
             return
@@ -49,9 +76,13 @@ class Script(object):
             item_sync = TraktAPI().sync_item(
                 choices[choice].get('method'), trakt_type, unique_id, id_type,
                 season=season, episode=episode)
-        if item_sync:
+        if item_sync and item_sync.status_code in [200, 201, 204]:
+            xbmcgui.Dialog().ok(ADDON.getLocalizedString(32295), ADDON.getLocalizedString(32297).format(
+                choices[choice].get('name'), trakt_type, id_type.upper(), unique_id))
             xbmc.executebuiltin('Container.Refresh')
-            return  # TODO: Check success or failure
+            return
+        xbmcgui.Dialog().ok(ADDON.getLocalizedString(32295), ADDON.getLocalizedString(32296).format(
+            choices[choice].get('name'), trakt_type, id_type.upper(), unique_id))
 
     def manage_artwork(self, ftv_id=None, ftv_type=None, **kwargs):
         if not ftv_id or not ftv_type:

@@ -24,7 +24,7 @@ def _sort_itemlist(items, sort_by=None, sort_how=None, trakt_type=None):
         return sorted(items, key=lambda i: i.get(trakt_type or i.get('type'), {}).get('year'), reverse=reverse)
     elif sort_by == 'released':
         return sorted(items, key=lambda i: i.get(trakt_type or i.get('type'), {}).get('first_aired')
-                      if (trakt_type or i.get('type')) == 'show'
+                      if (trakt_type or i.get('type')) in ['show', 'episode']
                       else i.get(trakt_type or i.get('type'), {}).get('released'), reverse=reverse)
     elif sort_by == 'runtime':
         return sorted(items, key=lambda i: i.get(trakt_type or i.get('type'), {}).get('runtime'), reverse=reverse)
@@ -47,32 +47,43 @@ def _get_item_title(item):
         return item['name']
 
 
-def _get_item_infolabels(item, item_type=None, infolabels=None):
+def _get_item_infolabels(item, item_type=None, infolabels=None, show=None):
     infolabels = infolabels or {}
     infolabels['title'] = _get_item_title(item)
     infolabels['year'] = item.get('year')
     infolabels['mediatype'] = plugin.convert_type(plugin.convert_trakt_type(item_type), plugin.TYPE_DB)
+    if show:
+        infolabels['tvshowtitle'] = show.get('title') or ''
+    if item_type == 'episode':
+        infolabels['episode'] = item.get('number')
+        infolabels['season'] = item.get('season')
+    if item_type == 'season':
+        infolabels['season'] = item.get('number')
     return utils.del_empty_keys(infolabels)
 
 
-def _get_item_unique_ids(item, unique_ids=None, prefix=None):
+def _get_item_unique_ids(item, unique_ids=None, prefix=None, show=None):
     prefix = prefix or ''
     unique_ids = unique_ids or {}
     for k, v in item.get('ids', {}).items():
         unique_ids['{}{}'.format(prefix, k)] = v
+    if show:
+        unique_ids = _get_item_unique_ids(show, unique_ids, prefix='tvshow.')
+        unique_ids['tmdb'] = show.get('ids', {}).get('tmdb')
     return utils.del_empty_keys(unique_ids)
 
 
 def _get_item_info(item, item_type=None, base_item=None, check_tmdb_id=True, params_definition=None):
     base_item = base_item or {}
     item_info = item.get(item_type, {}) or item
+    show_item = item.get('show') if item_type == 'episode' else None
     if not item_info:
         return base_item
     if check_tmdb_id and not item_info.get('ids', {}).get('tmdb'):
         return base_item
     base_item['label'] = _get_item_title(item_info) or ''
-    base_item['infolabels'] = _get_item_infolabels(item_info, item_type=item_type, infolabels=base_item.get('infolabels', {}))
-    base_item['unique_ids'] = _get_item_unique_ids(item_info, unique_ids=base_item.get('unique_ids', {}))
+    base_item['infolabels'] = _get_item_infolabels(item_info, item_type=item_type, infolabels=base_item.get('infolabels', {}), show=show_item)
+    base_item['unique_ids'] = _get_item_unique_ids(item_info, unique_ids=base_item.get('unique_ids', {}), show=show_item)
     base_item['params'] = utils.get_params(
         item_info, plugin.convert_trakt_type(item_type),
         tmdb_id=base_item.get('unique_ids', {}).get('tmdb'),
@@ -97,13 +108,13 @@ class TraktItems():
         self.items = _sort_itemlist(self.items, self.sort_by, self.sort_how, self.trakt_type)
         return self.items
 
-    def configure_items(self, permitted_types=None):
+    def configure_items(self, permitted_types=None, params_definition=None):
         """ (Re)Configures items for passing to listitem class in container and returns configured items """
         for i in self.items:
             i_type = self.trakt_type or i.get('type', None)
             if permitted_types and i_type not in permitted_types:
                 continue
-            item = _get_item_info(i, item_type=i_type)
+            item = _get_item_info(i, item_type=i_type, params_definition=params_definition)
             if not item:
                 continue
             # Also add item to a list only containing that item type
@@ -112,8 +123,8 @@ class TraktItems():
             self.configured['items'].append(item)
         return self.configured
 
-    def build_items(self, sort_by=None, sort_how=None, permitted_types=None):
+    def build_items(self, sort_by=None, sort_how=None, permitted_types=None, params_definition=None):
         """ Sorts and Configures Items """
         self.sort_items(sort_by, sort_how)
-        self.configure_items(permitted_types)
+        self.configure_items(permitted_types, params_definition)
         return self.configured

@@ -53,10 +53,11 @@ class FanartTV(RequestAPI):
         """
         if not ftv_type or not ftv_id:
             return
-        return self.get_request_lc(
+        return self.get_request(
             ftv_type, ftv_id,
             cache_force=1,  # Force the cache to save a dummy dict for 1 day so that we don't bother requesting 404s multiple times
             cache_fallback={},
+            cache_days=cache.CACHE_EXTENDED,
             cache_only=self.cache_only,
             cache_refresh=self.cache_refresh)
 

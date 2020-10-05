@@ -105,7 +105,8 @@ class TraktLists():
     def list_nextepisodes(self, info, tmdb_type, page=None, **kwargs):
         if tmdb_type != 'tv':
             return
-        items = TraktAPI().get_upnext_episodes_list(page=page)
+        sort_by_premiered = True if ADDON.getSettingString('trakt_nextepisodesort') == 'airdate' else False
+        items = TraktAPI().get_upnext_episodes_list(page=page, sort_by_premiered=sort_by_premiered)
         self.tmdb_cache_only = False
         # self.kodi_db = self.get_kodi_database(tmdb_type)
         self.library = 'video'
