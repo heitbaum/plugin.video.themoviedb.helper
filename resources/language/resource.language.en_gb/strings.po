@@ -1490,12 +1490,26 @@ msgstr ""
 
 #: /resources/lib/script.py
 msgctxt "#32296"
-msgid "{} failed for {}!\n{} ID {}"
+msgid ""
+"{} failed for {}!\n"
+"{} ID {}"
 msgstr ""
 
 #: /resources/lib/script.py
 msgctxt "#32297"
-msgid "{} was successful for {}!\n{} ID {}"
+msgid ""
+"{} was successful for {}!\n"
+"{} ID {}"
+msgstr ""
+
+#: /resources/lib/syncitem.py
+msgctxt "#32298"
+msgid "Add to user list"
+msgstr ""
+
+#: /resources/lib/syncitem.py
+msgctxt "#32299"
+msgid "Add to new list"
 msgstr ""
 
 msgctxt "#30030"

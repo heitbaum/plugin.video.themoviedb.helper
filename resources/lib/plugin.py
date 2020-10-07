@@ -38,6 +38,8 @@ def convert_trakt_type(trakt_type):
         return 'season'
     elif trakt_type == 'episode':
         return 'episode'
+    elif trakt_type == 'person':
+        return 'person'
 
 
 def convert_type(tmdb_type, output, season=None, episode=None):

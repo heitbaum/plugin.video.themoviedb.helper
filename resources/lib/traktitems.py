@@ -62,6 +62,12 @@ def _get_item_infolabels(item, item_type=None, infolabels=None, show=None):
     return utils.del_empty_keys(infolabels)
 
 
+def _get_item_infoproperties(item, item_type=None, infoproperties=None, show=None):
+    infoproperties = infoproperties or {}
+    infoproperties['tmdb_type'] = plugin.convert_trakt_type(item_type)
+    return utils.del_empty_keys(infoproperties)
+
+
 def _get_item_unique_ids(item, unique_ids=None, prefix=None, show=None):
     prefix = prefix or ''
     unique_ids = unique_ids or {}
@@ -83,6 +89,7 @@ def _get_item_info(item, item_type=None, base_item=None, check_tmdb_id=True, par
         return base_item
     base_item['label'] = _get_item_title(item_info) or ''
     base_item['infolabels'] = _get_item_infolabels(item_info, item_type=item_type, infolabels=base_item.get('infolabels', {}), show=show_item)
+    base_item['infoproperties'] = _get_item_infoproperties(item_info, item_type=item_type, infoproperties=base_item.get('infoproperties', {}), show=show_item)
     base_item['unique_ids'] = _get_item_unique_ids(item_info, unique_ids=base_item.get('unique_ids', {}), show=show_item)
     base_item['params'] = utils.get_params(
         item_info, plugin.convert_trakt_type(item_type),

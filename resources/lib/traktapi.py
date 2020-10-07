@@ -57,13 +57,14 @@ class _TraktLists():
         cache_refresh = True if utils.try_parse_int(page, fallback=1) == 1 else False
         sorted_items = self.get_sorted_list(
             path, sort_by, sort_how, extended,
-            permitted_types=['movie', 'show'],
+            permitted_types=['movie', 'show', 'person'],
             cache_refresh=cache_refresh)
         paginated_items = PaginatedItems(items=sorted_items['items'], page=page, limit=limit)
         return {
             'items': paginated_items.items,
             'movies': sorted_items.get('movies', []),
-            'tvshows': sorted_items.get('shows', []),
+            'shows': sorted_items.get('shows', []),
+            'persons': sorted_items.get('persons', []),
             'next_page': paginated_items.next_page}
 
     @use_activity_cache(cache_days=cache.CACHE_SHORT)
@@ -78,8 +79,8 @@ class _TraktLists():
         return response.items if not next_page else response.items + response.next_page
 
     @is_authorized
-    def get_list_of_lists(self, path, page=1, limit=250, authorize=False):
-        response = self.get_response_json(path, page=page, limit=limit)
+    def get_list_of_lists(self, path, page=1, limit=250, authorize=False, next_page=True):
+        response = self.get_response(path, page=page, limit=limit)
         if not response:
             return
         items = []
@@ -114,6 +115,8 @@ class _TraktLists():
                 ('{}: {}'.format(ADDON.getLocalizedString(32287), xbmc.getLocalizedString(590)),
                     'Container.Update({}&sort_by=random)'.format(path))]
             items.append(item)
+        if not next_page:
+            return items
         return items + paginated.get_next_page(response.headers)
 
     def _get_calendar_episodes_list(self, startdate=0, days=1):
@@ -173,19 +176,35 @@ class _TraktLists():
 
 
 class _TraktSync():
-    def sync_item(self, method, trakt_type, unique_id, id_type, season=None, episode=None):
+    def get_sync_item(self, trakt_type, unique_id, id_type, season=None, episode=None):
         """
         methods = history watchlist collection recommendations
         trakt_type = movie, show, season, episode
         """
-        if not unique_id or not id_type or not trakt_type or not method:
+        if not unique_id or not id_type or not trakt_type:
             return
         base_trakt_type = 'show' if trakt_type in ['season', 'episode'] else trakt_type
         if id_type != 'slug':
             unique_id = self.get_id(unique_id, id_type, base_trakt_type, output_type='slug')
         if not unique_id:
             return
-        item = self.get_details(base_trakt_type, unique_id, season=season, episode=episode, extended=None)
+        return self.get_details(base_trakt_type, unique_id, season=season, episode=episode, extended=None)
+
+    def add_list_item(self, list_slug, trakt_type, unique_id, id_type, season=None, episode=None, user_slug=None):
+        item = self.get_sync_item(trakt_type, unique_id, id_type, season, episode)
+        if not item:
+            return
+        user_slug = user_slug or 'me'
+        return self.post_response(
+            'users', user_slug, 'lists', list_slug, 'items',
+            postdata={'{}s'.format(trakt_type): [item]})
+
+    def sync_item(self, method, trakt_type, unique_id, id_type, season=None, episode=None):
+        """
+        methods = history watchlist collection recommendations
+        trakt_type = movie, show, season, episode
+        """
+        item = self.get_sync_item(trakt_type, unique_id, id_type, season, episode)
         if not item:
             return
         return self.post_response('sync', method, postdata={'{}s'.format(trakt_type): [item]})
@@ -217,9 +236,9 @@ class _TraktSync():
         if not id_type:
             return response
         if response and trakt_type:
-            return {i.get(trakt_type, {}).get('ids', {}).get(id_type): i
-                    for i in response
-                    if i.get(trakt_type, {}).get('ids', {}).get(id_type)}
+            return {
+                i[trakt_type]['ids'][id_type]: i for i in response
+                if i.get(trakt_type, {}).get('ids', {}).get(id_type)}
 
     def is_sync(self, trakt_type, unique_id, season=None, episode=None, id_type=None, sync_type=None):
         """ Returns True if item in sync list else False """
@@ -336,7 +355,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
             self.attempted_login = True
 
         # First time authorization in this session so let's confirm
-        if self.authorization and xbmcgui.Window(10000).getProperty('TMDbHelper.TraktIsAuth') != 'True':
+        if self.authorization and utils.get_property('TraktIsAuth') != 'True':
             # Check if we can get a response from user account
             utils.kodi_log('Checking Trakt authorization', 1)
             response = self.get_simple_api_request('https://api.trakt.tv/sync/last_activities', headers=self.headers)
@@ -347,7 +366,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
             # Authorization confirmed so let's set a window property for future reference in this session
             if self.authorization:
                 utils.kodi_log('Trakt user account authorized', 1)
-                xbmcgui.Window(10000).setProperty('TMDbHelper.TraktIsAuth', 'True')
+                utils.get_property('TraktIsAuth', 'True')
 
         return self.authorization
 

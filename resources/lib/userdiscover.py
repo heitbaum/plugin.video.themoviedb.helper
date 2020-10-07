@@ -591,8 +591,8 @@ def _get_discover_params(tmdb_type, get_labels=False):
 def _win_prop(name, prefix=None, **kwargs):
     if not name:
         return
-    prefix = 'TMDbHelper.UserDiscover.{}'.format(prefix) if prefix else 'TMDbHelper.UserDiscover'
-    return utils.get_property(name, prefix=prefix, **kwargs)
+    prefix = 'UserDiscover.{}'.format(prefix) if prefix else 'UserDiscover'
+    return utils.get_property('{}.{}'.format(prefix, name), **kwargs)
 
 
 def _clear_properties(methods=ALL_METHODS):

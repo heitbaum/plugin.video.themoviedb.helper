@@ -1,11 +1,8 @@
-import sys
 import datetime
 import simplecache
 import resources.lib.utils as utils
 _cache = simplecache.SimpleCache()
 _cache_name = 'TMDbHelper_v4'
-if sys.version_info[0] >= 3:
-    unicode = str  # In Py3 str is now unicode
 CACHE_LONG = 14
 CACHE_SHORT = 1
 CACHE_EXTENDED = 90
@@ -39,20 +36,6 @@ def set_cache(my_object, cache_name, cache_days=14, force=False, fallback=None):
     return my_object
 
 
-def format_name(cache_name, *args, **kwargs):
-    # Define a type whitelist to avoiding adding non-basic types like classes to cache name
-    permitted_types = [unicode, int, float, str, bool]
-    for arg in args:
-        if not arg or type(arg) not in permitted_types:
-            continue
-        cache_name = u'{0}/{1}'.format(cache_name, arg) if cache_name else u'{}'.format(arg)
-    for key, value in kwargs.items():
-        if not value or type(value) not in permitted_types:
-            continue
-        cache_name = u'{0}&{1}={2}'.format(cache_name, key, value) if cache_name else u'{0}={1}'.format(key, value)
-    return cache_name
-
-
 def use_cache(func, *args, **kwargs):
     """
     Simplecache takes func with args and kwargs
@@ -67,7 +50,7 @@ def use_cache(func, *args, **kwargs):
     cache_combine_name = kwargs.pop('cache_combine_name', False) or False
     headers = kwargs.pop('headers', None) or None
     if not cache_name or cache_combine_name:
-        cache_name = format_name(cache_name, *args, **kwargs)
+        cache_name = utils.format_name(cache_name, *args, **kwargs)
     my_cache = get_cache(cache_name) if not cache_refresh else None
     if my_cache:
         return my_cache

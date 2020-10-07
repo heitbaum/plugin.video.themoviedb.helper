@@ -263,3 +263,16 @@ class FanartTV(RequestAPI):
                 cache_days=10000)
         if success and container_refresh:
             xbmc.executebuiltin('Container.Refresh')
+
+    def manage_artwork(self, ftv_id=None, ftv_type=None):
+        if not ftv_id or not ftv_type:
+            return
+        choice = xbmcgui.Dialog().contextmenu([
+            ADDON.getLocalizedString(32220),
+            ADDON.getLocalizedString(32221)])
+        if choice == -1:
+            return
+        if choice == 0:
+            return self.select_artwork(ftv_id=ftv_id, ftv_type=ftv_type)
+        if choice == 1:
+            return self.refresh_all_artwork(ftv_id=ftv_id, ftv_type=ftv_type)

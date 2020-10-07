@@ -27,7 +27,7 @@ def use_activity_cache(activity_type=None, activity_key=None, cache_days=None, p
             # Set cache_name
             cache_name = '{}.'.format(func.__name__)
             cache_name = '{}.{}'.format(self.__class__.__name__, cache_name)
-            cache_name = cache.format_name(cache_name, *args, **kwargs)
+            cache_name = utils.format_name(cache_name, *args, **kwargs)
 
             # Cached response last_activity timestamp matches last_activity from trakt so no need to refresh
             last_activity = self._get_last_activity(activity_type, activity_key)

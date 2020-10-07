@@ -5,10 +5,12 @@ import xbmc
 import time
 import json
 import xbmcgui
+import hashlib
 import xbmcvfs
 import datetime
 import unicodedata
 from copy import copy
+from timeit import default_timer as timer
 from resources.lib.plugin import ADDON, PLUGINPATH, ADDONDATA
 from resources.lib.constants import VALID_FILECHARS
 from contextlib import contextmanager
@@ -20,19 +22,61 @@ try:
     import cPickle as _pickle
 except ImportError:
     import pickle as _pickle  # Newer versions of Py3 just use pickle
-
+if sys.version_info[0] >= 3:
+    unicode = str  # In Py3 str is now unicode
 
 _addonlogname = '[plugin.video.themoviedb.helper]\n'
 _debuglogging = ADDON.getSettingBool('debug_logging')
 
 
+def format_name(cache_name, *args, **kwargs):
+    # Define a type whitelist to avoiding adding non-basic types like classes to cache name
+    permitted_types = [unicode, int, float, str, bool]
+    for arg in args:
+        if not arg or type(arg) not in permitted_types:
+            continue
+        cache_name = u'{0}/{1}'.format(cache_name, arg) if cache_name else u'{}'.format(arg)
+    for key, value in kwargs.items():
+        if not value or type(value) not in permitted_types:
+            continue
+        cache_name = u'{0}&{1}={2}'.format(cache_name, key, value) if cache_name else u'{0}={1}'.format(key, value)
+    return cache_name
+
+
+def timer_report(func_name):
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            """ Syntactic sugar to time a class function """
+            timer_a = timer()
+            response = func(self, *args, **kwargs)
+            timer_z = timer()
+            total_time = timer_z - timer_a
+            if total_time > 0.001:
+                timer_name = '{}.{}.'.format(self.__class__.__name__, func_name)
+                timer_name = format_name(timer_name, *args, **kwargs)
+                kodi_log('{}\n{:.3f} sec'.format(timer_name, total_time), 1)
+            return response
+        return wrapper
+    return decorator
+
+
+def md5hash(value):
+    if sys.version_info.major != 3:
+        return hashlib.md5(str(value)).hexdigest()
+
+    value = str(value).encode()
+    return hashlib.md5(value).hexdigest()
+
+
 @contextmanager
-def busy_dialog():
-    xbmc.executebuiltin('ActivateWindow(busydialognocancel)')
+def busy_dialog(is_enabled=True):
+    if is_enabled:
+        xbmc.executebuiltin('ActivateWindow(busydialognocancel)')
     try:
         yield
     finally:
-        xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
+        if is_enabled:
+            xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
 
 
 def kodi_log(value, level=0):
@@ -306,6 +350,16 @@ def _get_write_path(folder):
     return main_dir
 
 
+def makepath(path):
+    if xbmcvfs.exists(path):
+        return xbmc.translatePath(path)
+    if xbmcvfs.mkdirs(path):
+        return xbmc.translatePath(path)
+    if ADDON.getSettingBool('ignore_folderchecking'):
+        kodi_log(u'Ignored xbmcvfs folder check error\n{}'.format(path), 2)
+        return xbmc.translatePath(path)
+
+
 def _get_pickle_name(cache_name):
     cache_name = cache_name or ''
     cache_name = cache_name.replace('\\', '_').replace('/', '_').replace('.', '_').replace('?', '_').replace('&', '_').replace('=', '_').replace('__', '_')
@@ -354,15 +408,25 @@ def use_pickle(func, *args, **kwargs):
         return set_pickle(my_object, cache_name)
 
 
-def get_property(name, set_property=None, clear_property=False, prefix=None, window_id=None):
-    window = xbmcgui.Window(window_id) if window_id else xbmcgui.Window(xbmcgui.getCurrentWindowId())
-    name = '{0}.{1}'.format(prefix, name) if prefix else name
+def get_property(name, set_property=None, clear_property=False, window_id=None, prefix=None, is_type=None):
+    prefix = prefix or 'TMDbHelper'
+    name = '{}.{}'.format(prefix, name)
+    if window_id == 'current':
+        window = xbmcgui.Window(xbmcgui.getCurrentWindowId())
+    elif window_id:
+        window = xbmcgui.Window(window_id)
+    else:
+        window = xbmcgui.Window(10000)
     if clear_property:
         window.clearProperty(name)
         return
     elif set_property:
-        window.setProperty(name, set_property)
+        window.setProperty(name, u'{}'.format(set_property))
         return set_property
+    if is_type == int:
+        return try_parse_int(window.getProperty(name))
+    if is_type == float:
+        return try_parse_float(window.getProperty(name))
     return window.getProperty(name)
 
 
@@ -388,3 +452,11 @@ def get_params(item, tmdb_type, tmdb_id=None, params=None, definition=None, base
     for k, v in definition.items():
         params[k] = v.format(tmdb_type=tmdb_type, tmdb_id=tmdb_id, base_tmdb_type=base_tmdb_type, **item)
     return del_empty_keys(params)
+
+
+def get_between_strings(string, startswith='', endswith=''):
+    exp = startswith + '(.+?)' + endswith
+    try:
+        return re.search(exp, string).group(1)
+    except AttributeError:
+        return ''

@@ -1,4 +1,3 @@
-import xbmcgui
 import requests
 import resources.lib.utils as utils
 import xml.etree.ElementTree as ET
@@ -10,8 +9,8 @@ class RequestAPI(object):
         self.req_api_url = req_api_url or ''
         self.req_api_key = req_api_key or ''
         self.req_api_name = req_api_name or ''
-        self.req_connect_err_prop = 'TMDbHelper.ConnectionError.{}'.format(self.req_api_name)
-        self.req_connect_err = utils.try_parse_float(xbmcgui.Window(10000).getProperty(self.req_connect_err_prop)) or 0
+        self.req_connect_err_prop = 'ConnectionError.{}'.format(self.req_api_name)
+        self.req_connect_err = utils.get_property(self.req_connect_err_prop, is_type=float) or 0
         self.headers = None
         self.timeout = timeout or 10
 
@@ -21,9 +20,13 @@ class RequestAPI(object):
             request = utils.dictify(request)
         return request
 
-    def get_api_request_json(self, request=None, postdata=None, headers=None):
+    def get_api_request_json(self, request=None, postdata=None, headers=None, is_xml=False):
         request = self.get_api_request(request=request, postdata=postdata, headers=headers)
-        return request.json() if request else {}
+        if is_xml:
+            return self.translate_xml(request)
+        if request:
+            return request.json()
+        return {}
 
     def get_simple_api_request(self, request=None, postdata=None, headers=None):
         try:
@@ -32,7 +35,7 @@ class RequestAPI(object):
             return requests.post(request, data=postdata, headers=headers)
         except Exception as err:
             self.req_connect_err = utils.set_timestamp()
-            xbmcgui.Window(10000).setProperty(self.req_connect_err_prop, str(self.req_connect_err))
+            utils.get_property(self.req_connect_err_prop, self.req_connect_err)
             utils.kodi_log(u'ConnectionError: {}\nSuppressing retries for 1 minute'.format(err), 1)
 
     def get_api_request(self, request=None, postdata=None, headers=None):
@@ -54,7 +57,7 @@ class RequestAPI(object):
                 utils.kodi_log(u'HTTP Error Code: {0}\nRequest: {1}\nPostdata: {2}\nHeaders: {3}\nResponse: {4}'.format(response.status_code, request, postdata, headers, response), 1)
             elif response.status_code == 500:
                 self.req_connect_err = utils.set_timestamp()
-                xbmcgui.Window(10000).setProperty(self.req_connect_err_prop, str(self.req_connect_err))
+                utils.get_property(self.req_connect_err_prop, self.req_connect_err)
                 utils.kodi_log(u'HTTP Error Code: {0}\nRequest: {1}\nSuppressing retries for 1 minute'.format(response.status_code, request), 1)
             elif utils.try_parse_int(response.status_code) > 400:  # Don't write 400 error to log
                 utils.kodi_log(u'HTTP Error Code: {0}\nRequest: {1}'.format(response.status_code, request), 1)
@@ -101,11 +104,13 @@ class RequestAPI(object):
         cache_combine_name = kwargs.pop('cache_combine_name', False)  # Combine given cache_name with auto naming via args/kwargs
         headers = kwargs.pop('headers', None) or self.headers  # Optional override to default headers.
         postdata = kwargs.pop('postdata', None)  # Postdata if need to POST to a RESTful API.
+        is_xml = kwargs.pop('is_xml', False)  # Response needs translating from XML to dict
         request_url = self.get_request_url(*args, **kwargs)
         return cache.use_cache(
             self.get_api_request_json, request_url,
             headers=headers,
             postdata=postdata,
+            is_xml=is_xml,
             cache_refresh=cache_refresh,
             cache_days=cache_days,
             cache_name=cache_name,

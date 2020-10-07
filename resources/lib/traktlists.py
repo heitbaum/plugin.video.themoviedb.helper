@@ -63,10 +63,16 @@ class TraktLists():
             return []
         self.tmdb_cache_only = False
         self.library = 'video'
-        if len(response.get('movies', [])) > len(response.get('tvshows', [])):
+        lengths = [
+            len(response.get('movies', [])),
+            len(response.get('tvshows', [])),
+            len(response.get('persons', []))]
+        if lengths.index(max(lengths)) == 0:
             self.container_content = 'movies'
-        else:
+        elif lengths.index(max(lengths)) == 1:
             self.container_content = 'tvshows'
+        elif lengths.index(max(lengths)) == 2:
+            self.container_content = 'actors'
         return response.get('items', []) + response.get('next_page', [])
 
     def list_becauseyouwatched(self, info, tmdb_type, page=None, **kwargs):

@@ -392,7 +392,7 @@ class Players(object):
     def get_resolved_path(self, return_listitem=True):
         if not self.item:
             return
-        xbmcgui.Window(10000).clearProperty('TMDbHelper.PlayerInfoString')
+        utils.get_property('PlayerInfoString', clear_property=True)
         path = self._get_resolved_path()
         if return_listitem:
             self.details.path = path[0] if path else None

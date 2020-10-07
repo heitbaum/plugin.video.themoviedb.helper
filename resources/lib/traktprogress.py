@@ -97,12 +97,6 @@ class _TraktProgress():
 
     @is_authorized
     @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
-    def get_show_progress(self, uid, hidden=False, specials=False, count_specials=False):
-        # TODO: Check last_activity stamp of show to see if we need to cache_refresh
-        return self.get_response_json('shows', uid, 'progress/watched') if uid else None
-
-    @is_authorized
-    @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
     def get_upnext_list(self, unique_id, id_type=None, page=1, limit=20):
         """ Gets the next episodes for a show that user should watch next """
         if id_type != 'slug':
@@ -142,6 +136,12 @@ class _TraktProgress():
                 for i in items]
             items = TraktItems(items, trakt_type='episode').sort_items('released', 'desc')
         return items
+
+    @is_authorized
+    @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
+    def get_show_progress(self, uid, hidden=False, specials=False, count_specials=False):
+        # TODO: Check last_activity stamp of show to see if we need to cache_refresh
+        return self.get_response_json('shows', uid, 'progress/watched') if uid else None
 
     @is_authorized
     @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
