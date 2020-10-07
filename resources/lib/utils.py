@@ -60,6 +60,20 @@ def timer_report(func_name):
     return decorator
 
 
+def log_output(func_name):
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            """ Syntactic sugar to log output of function """
+            response = func(self, *args, **kwargs)
+            log_text = '{}.{}.'.format(self.__class__.__name__, func_name)
+            log_text = format_name(log_text, *args, **kwargs)
+            kodi_log(log_text, 1)
+            kodi_log(response, 1)
+            return response
+        return wrapper
+    return decorator
+
+
 def md5hash(value):
     if sys.version_info.major != 3:
         return hashlib.md5(str(value)).hexdigest()
@@ -428,6 +442,30 @@ def get_property(name, set_property=None, clear_property=False, window_id=None, 
     if is_type == float:
         return try_parse_float(window.getProperty(name))
     return window.getProperty(name)
+
+
+def _property_is_value(name, value):
+    if not value and not get_property(name):
+        return True
+    if value and get_property(name) == value:
+        return True
+    return False
+
+
+def wait_for_property(name, value=None, set_property=False, poll=1, timeout=10):
+    """
+    Waits until property matches value. None value waits for property to be cleared.
+    Will set property to value if set_property flag is set. None value clears property.
+    Returns True when successful.
+    """
+    if set_property:
+        get_property(name, value) if value else get_property(name, clear_property=True)
+    is_property = _property_is_value(name, value)
+    while not xbmc.Monitor().abortRequested() and timeout > 0 and not is_property:
+        xbmc.Monitor().waitForAbort(poll)
+        is_property = _property_is_value(name, value)
+        timeout -= poll
+    return is_property
 
 
 def split_items(items, separator='/'):

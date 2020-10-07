@@ -2,15 +2,18 @@ import xbmc
 import datetime
 import resources.lib.utils as utils
 from resources.lib.plugin import ADDON
-from resources.lib.monitor_cronjob import CronJobMonitor
-from resources.lib.monitor_listitem import ListItemMonitor
+from resources.lib.monitor.cronjob import CronJobMonitor
+from resources.lib.monitor.listitem import ListItemMonitor
 
 
 # Workaround for "Failed to import _strptime because the import lockis held by another thread" error
-datetime.datetime.strptime("2016", "%Y")
+try:
+    datetime.datetime.strptime("2016", "%Y")
+except Exception as exc:
+    utils.kodi_log(exc, 1)
 
 
-class ServiceMonitor():
+class ServiceMonitor(object):
     def __init__(self):
         self.exit = False
         self.listitem = None

@@ -2,9 +2,9 @@ import datetime
 import resources.lib.utils as utils
 import resources.lib.cache as cache
 from resources.lib.cache import use_simple_cache
-from resources.lib.paginated import PaginatedItems
-from resources.lib.traktitems import TraktItems
-from resources.lib.traktfunc import is_authorized, use_activity_cache
+from resources.lib.pages import PaginatedItems
+from resources.lib.trakt.items import TraktItems
+from resources.lib.trakt.functions import is_authorized, use_activity_cache
 
 
 class _TraktProgress():

@@ -3,7 +3,7 @@ import xbmcgui
 import resources.lib.utils as utils
 import resources.lib.plugin as plugin
 import resources.lib.cache as cache
-from resources.lib.requestapi import RequestAPI
+from resources.lib.request.api import RequestAPI
 from resources.lib.listitem import ListItem
 from resources.lib.plugin import ADDON
 

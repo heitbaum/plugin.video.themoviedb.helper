@@ -1,7 +1,9 @@
 import xbmc
 import resources.lib.utils as utils
-from resources.lib.tmdb import TMDb
-from resources.lib.omdb import OMDb
+from resources.lib.tmdb.api import TMDb
+from resources.lib.omdb.api import OMDb
+from resources.lib.trakt.api import TraktAPI
+from resources.lib.fanarttv.api import FanartTV
 from resources.lib.plugin import ADDON
 
 SETMAIN = {
@@ -29,8 +31,11 @@ class CommonMonitorFunctions(object):
     def __init__(self):
         self.properties = set()
         self.index_properties = set()
+        self.trakt_api = TraktAPI()
         self.tmdb_api = TMDb()
+        self.fanarttv = FanartTV()
         self.omdb_api = OMDb() if ADDON.getSettingString('omdb_apikey') else None
+        self.imdb_top250 = {}
 
     def clear_property(self, key):
         key = 'ListItem.{}'.format(key)
@@ -125,6 +130,43 @@ class CommonMonitorFunctions(object):
         except Exception as exc:
             utils.kodi_log(u'Func: get_tmdb_id\n{0}'.format(exc), 1)
             return
+
+    def get_fanarttv_artwork(self, item, tmdb_type=None, tmdb_id=None, tvdb_id=None):
+        if not self.fanarttv or tmdb_type not in ['movie', 'tv']:
+            return item
+        lookup_id = None
+        if tmdb_type == 'tv':
+            lookup_id = tvdb_id or item.get('unique_ids', {}).get('tvshow.tvdb') or item.get('unique_ids', {}).get('tvdb')
+            func = self.fanarttv.get_tv_all_artwork
+        elif tmdb_type == 'movie':
+            lookup_id = tmdb_id or item.get('unique_ids', {}).get('tmdb')
+            func = self.fanarttv.get_movies_all_artwork
+        if lookup_id:
+            item['art'] = utils.merge_two_dicts(item.get('art', {}), func(lookup_id))
+        return item
+
+    def get_trakt_ratings(self, item, trakt_type, season=None, episode=None):
+        ratings = TraktAPI().get_ratings(
+            trakt_type=trakt_type,
+            imdb_id=item.get('unique_ids', {}).get('tvshow.imdb') or item.get('unique_ids', {}).get('imdb'),
+            trakt_id=item.get('unique_ids', {}).get('tvshow.trakt') or item.get('unique_ids', {}).get('trakt'),
+            slug_id=item.get('unique_ids', {}).get('tvshow.slug') or item.get('unique_ids', {}).get('slug'),
+            season=season,
+            episode=episode)
+        if not ratings:
+            return item
+        item['infoproperties'] = utils.merge_two_dicts(item.get('infoproperties', {}), ratings)
+        return item
+
+    def get_imdb_top250_rank(self, item):
+        if not self.imdb_top250:
+            self.imdb_top250 = self.trakt_api.get_imdb_top250(id_type='tmdb')
+        try:
+            item['infolabels']['top250'] = self.imdb_top250.index(
+                utils.try_parse_int(item.get('unique_ids', {}).get('tmdb'))) + 1
+        except Exception:
+            pass
+        return item
 
     def get_omdb_ratings(self, item, cache_only=False):
         if not self.omdb_api:

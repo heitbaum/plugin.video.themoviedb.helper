@@ -3,7 +3,7 @@ import xbmcgui
 import resources.lib.utils as utils
 import resources.lib.cache as cache
 import resources.lib.plugin as plugin
-from resources.lib.tmdb import TMDb
+from resources.lib.tmdb.api import TMDb
 from resources.lib.plugin import ADDONPATH, ADDON, PLUGINPATH
 
 

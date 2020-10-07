@@ -7,10 +7,12 @@ import xbmc
 import xbmcgui
 import resources.lib.utils as utils
 import resources.lib.basedir as basedir
-from resources.lib.fanarttv import FanartTV
-from resources.lib.tmdb import TMDb
+from resources.lib.fanarttv.api import FanartTV
+from resources.lib.tmdb.api import TMDb
 from resources.lib.plugin import ADDON
-from resources.lib.syncitem import SyncItem
+from resources.lib.trakt.sync import SyncItem
+from resources.lib.monitor.service import ServiceMonitor
+from threading import Thread
 
 
 class Script(object):
@@ -63,6 +65,12 @@ class Script(object):
             xbmcgui.Dialog().ok('TMDbHelper', ADDON.getLocalizedString(32234).format(tmdb_type, tmdb_id))
             xbmc.executebuiltin('Container.Refresh')
 
+    def restart_service(self):
+        if utils.get_property('ServiceStarted') == 'True':
+            utils.wait_for_property('ServiceStop', value='True', set_property=True)  # Stop service
+        utils.wait_for_property('ServiceStop', value=None)  # Wait until Service clears property
+        Thread(target=ServiceMonitor().run).start()
+
     def sync_item(self, trakt_type, unique_id, season=None, episode=None, id_type=None, **kwargs):
         SyncItem(trakt_type, unique_id, season, episode, id_type).sync()
 
@@ -81,3 +89,5 @@ class Script(object):
             return self.refresh_details(**self.params)
         if self.params.get('related_lists'):
             return self.related_lists(**self.params)
+        if self.params.get('restart_service'):
+            return self.restart_service()

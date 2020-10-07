@@ -1,8 +1,8 @@
 import xbmc
 import resources.lib.utils as utils
-import resources.lib.monitor_common as monitor_common
-from resources.lib.monitor_common import CommonMonitorFunctions
-from resources.lib.imagefunctions import ImageFunctions
+import resources.lib.monitor.common as monitor_common
+from resources.lib.monitor.common import CommonMonitorFunctions
+from resources.lib.monitor.images import ImageFunctions
 from resources.lib.plugin import ADDON
 from threading import Thread
 
@@ -129,13 +129,13 @@ class ListItemMonitor(CommonMonitorFunctions):
                     return
             pre_item = self.pre_item
             # TODO: Get Fanart TV and local library artwork lookups
-            # if ADDON.getSettingBool('service_fanarttv_lookup'):
-            #     details = self.get_fanarttv_artwork(details, tmdb_type)
+            if ADDON.getSettingBool('service_fanarttv_lookup'):
+                details = self.get_fanarttv_artwork(details, tmdb_type)
             # if ADDON.getSettingBool('local_db'):
             #     details = self.get_kodi_artwork(details, self.dbtype, self.dbid)
             if not self.is_same_item(update=False, pre_item=pre_item):
                 return
-            self.set_iter_properties(details, monitor_common.SETMAIN_ARTWORK)
+            self.set_iter_properties(details.get('art', {}), monitor_common.SETMAIN_ARTWORK)
 
             # Crop Image
             if details.get('clearlogo'):
@@ -154,10 +154,12 @@ class ListItemMonitor(CommonMonitorFunctions):
             pre_item = self.pre_item
             details = self.get_omdb_ratings(details)
             # TODO: Get IMDb Top 250 and Trakt ratings
-            # if tmdb_type == 'movie':
-            #     details = self.get_top250_rank(details)
-            # if tmdb_type in ['movie', 'tv']:
-            #     details = self.get_trakt_ratings(details, tmdb_type, tmdb_id, self.season, self.episode)
+            if tmdb_type == 'movie':
+                details = self.get_imdb_top250_rank(details)
+            if tmdb_type in ['movie', 'tv']:
+                details = self.get_trakt_ratings(
+                    details, 'movie' if tmdb_type == 'movie' else 'show',
+                    season=self.season, episode=self.episode)
             if not self.is_same_item(update=False, pre_item=pre_item):
                 return
             self.set_iter_properties(details.get('infoproperties', {}), monitor_common.SETPROP_RATINGS)

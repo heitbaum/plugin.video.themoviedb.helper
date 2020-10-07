@@ -1,6 +1,6 @@
 import resources.lib.plugin as plugin
 import resources.lib.constants as constants
-from resources.lib.tmdb import TMDb
+from resources.lib.tmdb.api import TMDb
 
 
 class TMDbLists():

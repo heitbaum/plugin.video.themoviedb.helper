@@ -5,7 +5,7 @@
 import xbmc
 import xbmcgui
 import resources.lib.utils as utils
-from resources.lib.traktapi import TraktAPI
+from resources.lib.trakt.api import TraktAPI
 from resources.lib.plugin import ADDON
 
 

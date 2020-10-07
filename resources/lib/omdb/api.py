@@ -1,5 +1,5 @@
 import resources.lib.utils as utils
-from resources.lib.requestapi import RequestAPI
+from resources.lib.request.api import RequestAPI
 from resources.lib.plugin import ADDON
 
 

@@ -8,16 +8,16 @@ import resources.lib.constants as constants
 import resources.lib.rpc as rpc
 from resources.lib.script import Script
 from resources.lib.listitem import ListItem
-from resources.lib.tmdb import TMDb
-from resources.lib.fanarttv import FanartTV
+from resources.lib.tmdb.api import TMDb
+from resources.lib.fanarttv.api import FanartTV
 from resources.lib.itemutils import ItemUtils
 from resources.lib.players import Players
 from resources.lib.plugin import ADDON
 from resources.lib.basedir import BaseDirLists
-from resources.lib.tmdblists import TMDbLists
-from resources.lib.traktlists import TraktLists
-from resources.lib.search import SearchLists
-from resources.lib.userdiscover import UserDiscoverLists
+from resources.lib.tmdb.lists import TMDbLists
+from resources.lib.trakt.lists import TraktLists
+from resources.lib.tmdb.search import SearchLists
+from resources.lib.tmdb.discover import UserDiscoverLists
 
 
 class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists, TraktLists):

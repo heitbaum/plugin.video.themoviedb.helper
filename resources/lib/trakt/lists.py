@@ -2,7 +2,7 @@ import random
 import resources.lib.utils as utils
 import resources.lib.plugin as plugin
 import resources.lib.constants as constants
-from resources.lib.traktapi import TraktAPI
+from resources.lib.trakt.api import TraktAPI
 from resources.lib.plugin import ADDON
 
 

@@ -1,7 +1,7 @@
 import resources.lib.rpc as rpc
 import resources.lib.utils as utils
-from resources.lib.traktapi import TraktAPI
-from resources.lib.tmdb import TMDb
+from resources.lib.trakt.api import TraktAPI
+from resources.lib.tmdb.api import TMDb
 
 
 class ItemUtils(object):

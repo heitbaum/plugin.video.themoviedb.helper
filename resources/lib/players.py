@@ -7,7 +7,7 @@ import datetime
 import resources.lib.rpc as rpc
 import resources.lib.utils as utils
 import resources.lib.constants as constants
-from resources.lib.tmdb import TMDb
+from resources.lib.tmdb.api import TMDb
 from resources.lib.listitem import ListItem
 from resources.lib.plugin import ADDON, PLUGINPATH, ADDONPATH
 from resources.lib.itemutils import ItemUtils

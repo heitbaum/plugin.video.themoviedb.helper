@@ -2,15 +2,15 @@ import xbmc
 import xbmcgui
 import resources.lib.utils as utils
 import resources.lib.cache as cache
-import resources.lib.paginated as paginated
+import resources.lib.pages as pages
 from resources.lib.cache import use_simple_cache
 from json import loads, dumps
-from resources.lib.requestapi import RequestAPI
+from resources.lib.request.api import RequestAPI
 from resources.lib.plugin import ADDON, PLUGINPATH
-from resources.lib.paginated import PaginatedItems
-from resources.lib.traktitems import TraktItems
-from resources.lib.traktfunc import is_authorized, use_activity_cache
-from resources.lib.traktprogress import _TraktProgress
+from resources.lib.pages import PaginatedItems
+from resources.lib.trakt.items import TraktItems
+from resources.lib.trakt.functions import is_authorized, use_activity_cache
+from resources.lib.trakt.progress import _TraktProgress
 
 API_URL = 'https://api.trakt.tv/'
 CLIENT_ID = 'e6fde6173adf3c6af8fd1b0694b9b84d7c519cefc24482310e1de06c6abe5467'
@@ -47,7 +47,7 @@ class _TraktLists():
         else:  # Unsorted lists can be paginated by the API
             response = self.get_simple_list(path, extended=extended, page=page, limit=limit, trakt_type=trakt_type)
         if response:
-            return response['items'] + paginated.get_next_page(response['headers'])
+            return response['items'] + pages.get_next_page(response['headers'])
 
     def get_custom_list(self, list_slug, user_slug=None, page=1, limit=20, params=None, authorize=False, sort_by=None, sort_how=None, extended=None):
         if authorize and not self.authorize():
@@ -117,7 +117,7 @@ class _TraktLists():
             items.append(item)
         if not next_page:
             return items
-        return items + paginated.get_next_page(response.headers)
+        return items + pages.get_next_page(response.headers)
 
     def _get_calendar_episodes_list(self, startdate=0, days=1):
         response = self.get_calendar_episodes(startdate=startdate, days=days)
@@ -520,3 +520,26 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
         if not season or not episode:
             return self.get_request_lc(trakt_type + 's', id_num, extended=extended)
         return self.get_request_lc(trakt_type + 's', id_num, 'seasons', season, 'episodes', episode, extended=extended)
+
+    @use_simple_cache(cache_days=cache.CACHE_SHORT)
+    def get_imdb_top250(self, id_type=None):
+        path = 'users/justin/lists/imdb-top-rated-movies/items'
+        response = self.get_response(path, limit=0)
+        sorted_items = TraktItems(response.json() if response else []).sort_items('rank', 'asc') or []
+        return [i['movie']['ids'][id_type] for i in sorted_items]
+
+    @use_simple_cache(cache_days=cache.CACHE_SHORT)
+    def get_ratings(self, trakt_type, imdb_id=None, trakt_id=None, slug_id=None, season=None, episode=None):
+        slug = slug_id or trakt_id or imdb_id
+        if episode and season:
+            url = 'shows/{}/seasons/{}/episodes/{}/ratings'.format(slug, season, episode)
+        elif season:
+            url = 'shows/{}/seasons/{}/ratings'.format(slug, season)
+        else:
+            url = '{}s/{}/ratings'.format(trakt_type, slug)
+        response = self.get_response_json(url)
+        if not response:
+            return
+        return {
+            'trakt_rating': '{:0.1f}'.format(response.get('rating') or 0.0),
+            'trakt_votes': '{:0.1f}'.format(response.get('votes') or 0.0)}
