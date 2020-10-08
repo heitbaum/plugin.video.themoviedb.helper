@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import sys
 import xbmc
 import xbmcaddon
-import resources.lib.constants as constants
+import hashlib
+import resources.lib.helpers.constants as constants
 
 
 ADDON = xbmcaddon.Addon('plugin.video.themoviedb.helper')
@@ -15,6 +17,33 @@ TYPE_CONTAINER = 2
 TYPE_TRAKT = 3
 TYPE_DB = 4
 TYPE_LIBRARY = 5
+
+_addonlogname = '[plugin.video.themoviedb.helper]\n'
+_debuglogging = ADDON.getSettingBool('debug_logging')
+
+
+def md5hash(value):
+    if sys.version_info.major != 3:
+        return hashlib.md5(str(value)).hexdigest()
+    value = str(value).encode()
+    return hashlib.md5(value).hexdigest()
+
+
+def kodi_log(value, level=0):
+    try:
+        if isinstance(value, bytes):
+            value = value.decode('utf-8')
+        logvalue = u'{0}{1}'.format(_addonlogname, value)
+        if sys.version_info < (3, 0):
+            logvalue = logvalue.encode('utf-8', 'ignore')
+        if level == 2 and _debuglogging:
+            xbmc.log(logvalue, level=xbmc.LOGNOTICE)
+        elif level == 1:
+            xbmc.log(logvalue, level=xbmc.LOGNOTICE)
+        else:
+            xbmc.log(logvalue, level=xbmc.LOGDEBUG)
+    except Exception as exc:
+        xbmc.log(u'Logging Error: {}'.format(exc), level=xbmc.LOGNOTICE)
 
 
 def get_language():

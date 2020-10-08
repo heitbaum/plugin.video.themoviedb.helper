@@ -1,30 +1,37 @@
-
 import sys
 import xbmc
 import xbmcplugin
-import resources.lib.utils as utils
-import resources.lib.plugin as plugin
-import resources.lib.constants as constants
-import resources.lib.rpc as rpc
+import resources.lib.helpers.plugin as plugin
+import resources.lib.helpers.constants as constants
+import resources.lib.helpers.rpc as rpc
 from resources.lib.script import Script
-from resources.lib.listitem import ListItem
+from resources.lib.items.listitem import ListItem
 from resources.lib.tmdb.api import TMDb
 from resources.lib.fanarttv.api import FanartTV
-from resources.lib.itemutils import ItemUtils
-from resources.lib.players import Players
-from resources.lib.plugin import ADDON
-from resources.lib.basedir import BaseDirLists
+from resources.lib.items.utils import ItemUtils
+from resources.lib.player.players import Players
+from resources.lib.helpers.plugin import ADDON, kodi_log
+from resources.lib.items.basedir import BaseDirLists
 from resources.lib.tmdb.lists import TMDbLists
 from resources.lib.trakt.lists import TraktLists
 from resources.lib.tmdb.search import SearchLists
 from resources.lib.tmdb.discover import UserDiscoverLists
+from resources.lib.helpers.parser import try_decode, parse_paramstring
+from resources.lib.helpers.setutils import split_items
+
+
+def filtered_item(item, key, value, exclude=False):
+    boolean = False if exclude else True  # Flip values if we want to exclude instead of include
+    if key and value and item.get(key) == value:
+        boolean = exclude
+    return boolean
 
 
 class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists, TraktLists):
     def __init__(self):
         self.handle = int(sys.argv[1])
-        self.paramstring = utils.try_decode_string(sys.argv[2][1:])
-        self.params = utils.parse_paramstring(sys.argv[2][1:])
+        self.paramstring = try_decode(sys.argv[2][1:])
+        self.params = parse_paramstring(sys.argv[2][1:])
         self.allow_pagination = True
         self.update_listing = False
         self.plugin_category = ''
@@ -41,9 +48,9 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
 
         # Filters and Exclusions
         self.filter_key = self.params.get('filter_key', None)
-        self.filter_value = utils.split_items(self.params.get('filter_value', None))[0]
+        self.filter_value = split_items(self.params.get('filter_value', None))[0]
         self.exclude_key = self.params.get('exclude_key', None)
-        self.exclude_value = utils.split_items(self.params.get('exclude_value', None))[0]
+        self.exclude_value = split_items(self.params.get('exclude_value', None))[0]
 
         # Legacy code clean-up for back compatibility
         # TODO: Maybe only necessary for player code??
@@ -87,7 +94,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             try:
                 xbmcplugin.setProperty(self.handle, u'Param.{}'.format(k), u'{}'.format(v))  # Set params to container properties
             except Exception as exc:
-                utils.kodi_log(u'Error: {}\nUnable to set Param.{} to {}'.format(exc, k, v), 1)
+                kodi_log(u'Error: {}\nUnable to set Param.{} to {}'.format(exc, k, v), 1)
 
     def finish_container(self, update_listing=False, plugin_category='', container_content=''):
         xbmcplugin.setPluginCategory(self.handle, plugin_category)  # Container.PluginCategory
@@ -104,17 +111,17 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
     def item_is_excluded(self, item):
         if self.filter_key and self.filter_value:
             if self.filter_key in item.get('infolabels', {}):
-                if utils.filtered_item(item['infolabels'], self.filter_key, self.filter_value):
+                if filtered_item(item['infolabels'], self.filter_key, self.filter_value):
                     return True
             elif self.filter_key in item.get('infoproperties', {}):
-                if utils.filtered_item(item['infoproperties'], self.filter_key, self.filter_value):
+                if filtered_item(item['infoproperties'], self.filter_key, self.filter_value):
                     return True
         if self.exclude_key and self.exclude_value:
             if self.exclude_key in item.get('infolabels', {}):
-                if utils.filtered_item(item['infolabels'], self.exclude_key, self.exclude_value, True):
+                if filtered_item(item['infolabels'], self.exclude_key, self.exclude_value, True):
                     return True
             elif self.exclude_key in item.get('infoproperties', {}):
-                if utils.filtered_item(item['infoproperties'], self.exclude_key, self.exclude_value, True):
+                if filtered_item(item['infoproperties'], self.exclude_key, self.exclude_value, True):
                     return True
 
     def get_kodi_database(self, tmdb_type):

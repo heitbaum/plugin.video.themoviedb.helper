@@ -1,10 +1,11 @@
 import xbmc
 import xbmcgui
-import resources.lib.utils as utils
-import resources.lib.cache as cache
-import resources.lib.plugin as plugin
+import resources.lib.helpers.cache as cache
+import resources.lib.helpers.plugin as plugin
 from resources.lib.tmdb.api import TMDb
-from resources.lib.plugin import ADDONPATH, ADDON, PLUGINPATH
+from resources.lib.helpers.plugin import ADDONPATH, ADDON, PLUGINPATH
+from resources.lib.helpers.parser import try_decode, urlencode_params
+from resources.lib.helpers.setutils import merge_two_dicts
 
 
 class SearchLists():
@@ -19,7 +20,7 @@ class SearchLists():
             'label': '{} {}'.format(xbmc.getLocalizedString(137), plugin.convert_type(tmdb_type, plugin.TYPE_PLURAL)),
             'art': {'thumb': '{}/resources/icons/tmdb/search.png'.format(ADDONPATH)},
             'infoproperties': {'specialsort': 'top'},
-            'params': utils.merge_two_dicts(kwargs, {'info': 'search', 'tmdb_type': tmdb_type})}
+            'params': merge_two_dicts(kwargs, {'info': 'search', 'tmdb_type': tmdb_type})}
         items = []
         items.append(base_item)
 
@@ -29,20 +30,20 @@ class SearchLists():
             item = {
                 'label': i,
                 'art': base_item.get('art'),
-                'params': utils.merge_two_dicts(base_item.get('params', {}), {'query': i})}
+                'params': merge_two_dicts(base_item.get('params', {}), {'query': i})}
             items.append(item)
         if history:
             item = {
                 'label': ADDON.getLocalizedString(32121),
                 'art': base_item.get('art'),
-                'params': utils.merge_two_dicts(base_item.get('params', {}), {'info': 'dir_search', 'clear_cache': 'True'})}
+                'params': merge_two_dicts(base_item.get('params', {}), {'info': 'dir_search', 'clear_cache': 'True'})}
             items.append(item)
         return items
 
     def list_search(self, tmdb_type, query=None, update_listing=False, page=None, **kwargs):
         original_query = query
         query = query or cache.set_search_history(
-            query=utils.try_decode_string(xbmcgui.Dialog().input(ADDON.getLocalizedString(32044), type=xbmcgui.INPUT_ALPHANUM)),
+            query=try_decode(xbmcgui.Dialog().input(ADDON.getLocalizedString(32044), type=xbmcgui.INPUT_ALPHANUM)),
             tmdb_type=tmdb_type)
 
         if not query:
@@ -55,10 +56,10 @@ class SearchLists():
             primary_release_year=kwargs.get('primary_release_year'))
 
         if not original_query:
-            params = utils.merge_two_dicts(kwargs, {
+            params = merge_two_dicts(kwargs, {
                 'info': 'search', 'tmdb_type': tmdb_type, 'page': page, 'query': query,
                 'update_listing': 'True'})
-            self.container_update = '{}?{}'.format(PLUGINPATH, utils.urlencode_params(**params))
+            self.container_update = '{}?{}'.format(PLUGINPATH, urlencode_params(**params))
             # Trigger container update using new path with query after adding items
             # Prevents onback from re-prompting for user input by re-writing path
 

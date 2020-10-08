@@ -1,11 +1,12 @@
 import xbmc
 import xbmcgui
-import resources.lib.utils as utils
-import resources.lib.plugin as plugin
-import resources.lib.cache as cache
+import resources.lib.helpers.plugin as plugin
+import resources.lib.helpers.cache as cache
 from resources.lib.request.api import RequestAPI
-from resources.lib.listitem import ListItem
-from resources.lib.plugin import ADDON
+from resources.lib.items.listitem import ListItem
+from resources.lib.helpers.plugin import ADDON
+from resources.lib.helpers.setutils import del_empty_keys
+from resources.lib.helpers.decorators import busy_dialog
 
 
 API_URL = 'http://webservice.fanart.tv/v3'
@@ -147,7 +148,7 @@ class FanartTV(RequestAPI):
 
     def get_tv_all_artwork(self, ftv_id):
         if self.get_artwork_request(ftv_id, 'tv'):  # Check we can get the request first so we don't re-ask eight times if it 404s
-            return utils.del_empty_keys({
+            return del_empty_keys({
                 'clearart': self.get_tv_clearart(ftv_id),
                 'clearlogo': self.get_tv_clearlogo(ftv_id),
                 'banner': self.get_tv_banner(ftv_id),
@@ -158,7 +159,7 @@ class FanartTV(RequestAPI):
 
     def get_movies_all_artwork(self, ftv_id):
         if self.get_artwork_request(ftv_id, 'movies'):  # Check we can get the request first so we don't re-ask eight times if it 404s
-            return utils.del_empty_keys({
+            return del_empty_keys({
                 'clearart': self.get_movies_clearart(ftv_id),
                 'clearlogo': self.get_movies_clearlogo(ftv_id),
                 'banner': self.get_movies_banner(ftv_id),
@@ -175,7 +176,7 @@ class FanartTV(RequestAPI):
 
     def refresh_all_artwork(self, ftv_id, ftv_type, ok_dialog=True, container_refresh=True):
         self.cache_refresh = True
-        with utils.busy_dialog():
+        with busy_dialog():
             artwork = self.get_all_artwork(ftv_id, ftv_type)
         if ok_dialog and not artwork:
             xbmcgui.Dialog().ok('FanartTV', ADDON.getLocalizedString(32217).format(ftv_type, ftv_id))
@@ -221,7 +222,7 @@ class FanartTV(RequestAPI):
     def select_artwork(self, ftv_id, ftv_type, container_refresh=True, blacklist=[]):
         if ftv_type not in ['movies', 'tv']:
             return
-        with utils.busy_dialog():
+        with busy_dialog():
             artwork = self.get_artwork_request(ftv_id, ftv_type)
         if not artwork:
             return xbmcgui.Dialog().notification('FanartTV', ADDON.getLocalizedString(32217).format(ftv_type, ftv_id))

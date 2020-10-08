@@ -1,9 +1,9 @@
-import resources.lib.utils as utils
+from resources.lib.helpers.parser import try_int
 
 
 def get_next_page(response_headers=None):
-    num_pages = utils.try_parse_int(response_headers.get('X-Pagination-Page-Count', 0))
-    this_page = utils.try_parse_int(response_headers.get('X-Pagination-Page', 0))
+    num_pages = try_int(response_headers.get('X-Pagination-Page-Count', 0))
+    this_page = try_int(response_headers.get('X-Pagination-Page', 0))
     if this_page < num_pages:
         return [{'next_page': this_page + 1}]
     return []
@@ -12,11 +12,11 @@ def get_next_page(response_headers=None):
 class PaginatedItems():
     def __init__(self, items, page=None, limit=None):
         self.all_items = items or []
-        self.limit = utils.try_parse_int(limit) or 20
+        self.limit = try_int(limit) or 20
         self.get_page(page)
 
     def get_page(self, page=None):
-        self.page = utils.try_parse_int(page) or 1
+        self.page = try_int(page) or 1
         self.index_z = self.page * self.limit
         self.index_a = self.index_z - self.limit
         self.index_z = len(self.all_items) if len(self.all_items) < self.index_z else self.index_z

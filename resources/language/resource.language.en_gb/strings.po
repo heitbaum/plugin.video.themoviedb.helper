@@ -1512,6 +1512,26 @@ msgctxt "#32299"
 msgid "Add to new list"
 msgstr ""
 
+#: /resources/lib/basedir.py
+msgctxt "#32300"
+msgid "Trending List"
+msgstr ""
+
+#: /resources/lib/basedir.py
+msgctxt "#32301"
+msgid "Popular List"
+msgstr ""
+
+#: /resources/lib/basedir.py
+msgctxt "#32302"
+msgid "Liked List"
+msgstr ""
+
+#: /resources/lib/basedir.py
+msgctxt "#32303"
+msgid "Your List"
+msgstr ""
+
 msgctxt "#30030"
 msgid "Hindi (India)"
 msgstr ""

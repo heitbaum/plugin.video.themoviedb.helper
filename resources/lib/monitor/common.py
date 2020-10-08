@@ -1,10 +1,12 @@
 import xbmc
-import resources.lib.utils as utils
+import resources.lib.helpers.window as window
 from resources.lib.tmdb.api import TMDb
 from resources.lib.omdb.api import OMDb
 from resources.lib.trakt.api import TraktAPI
 from resources.lib.fanarttv.api import FanartTV
-from resources.lib.plugin import ADDON
+from resources.lib.helpers.plugin import ADDON, kodi_log
+from resources.lib.helpers.parser import try_int
+from resources.lib.helpers.setutils import merge_two_dicts
 
 SETMAIN = {
     'label', 'tmdb_id', 'imdb_id'}
@@ -40,19 +42,19 @@ class CommonMonitorFunctions(object):
     def clear_property(self, key):
         key = 'ListItem.{}'.format(key)
         try:
-            utils.get_property(key, clear_property=True)
+            window.get_property(key, clear_property=True)
         except Exception as exc:
-            utils.kodi_log(u'Func: clear_property\n{0}{1}'.format(key, exc), 1)
+            kodi_log(u'Func: clear_property\n{0}{1}'.format(key, exc), 1)
 
     def set_property(self, key, value):
         key = 'ListItem.{}'.format(key)
         try:
             if value is None:
-                utils.get_property(key, clear_property=True)
+                window.get_property(key, clear_property=True)
             else:
-                utils.get_property(key, set_property=u'{0}'.format(value))
+                window.get_property(key, set_property=u'{0}'.format(value))
         except Exception as exc:
-            utils.kodi_log(u'{}{}'.format(key, exc), 1)
+            kodi_log(u'{}{}'.format(key, exc), 1)
 
     def set_iter_properties(self, dictionary, keys):
         if not isinstance(dictionary, dict):
@@ -64,7 +66,7 @@ class CommonMonitorFunctions(object):
                     try:
                         v = ' / '.join(v)
                     except Exception as exc:
-                        utils.kodi_log(u'Func: set_iter_properties - list\n{0}'.format(exc), 1)
+                        kodi_log(u'Func: set_iter_properties - list\n{0}'.format(exc), 1)
                 self.properties.add(k)
                 self.set_property(k, v)
             except Exception as exc:
@@ -83,7 +85,7 @@ class CommonMonitorFunctions(object):
                 self.set_property(k, v)
                 index_properties.add(k)
             except Exception as exc:
-                utils.kodi_log(u'k: {0} v: {1} e: {2}'.format(k, v, exc), 1)
+                kodi_log(u'k: {0} v: {1} e: {2}'.format(k, v, exc), 1)
 
         for k in (self.index_properties - index_properties):
             self.clear_property(k)
@@ -98,7 +100,7 @@ class CommonMonitorFunctions(object):
             self.properties.add(prop)
             self.set_property(prop, joinlist)
         except Exception as exc:
-            utils.kodi_log(u'Func: set_list_properties\n{0}'.format(exc), 1)
+            kodi_log(u'Func: set_list_properties\n{0}'.format(exc), 1)
 
     def set_time_properties(self, duration):
         try:
@@ -128,7 +130,7 @@ class CommonMonitorFunctions(object):
                 return self.tmdb_api.get_tmdb_id(tmdb_type=tmdb_type, imdb_id=imdb_id)
             return self.tmdb_api.get_tmdb_id(tmdb_type=tmdb_type, query=query, year=year, episode_year=episode_year)
         except Exception as exc:
-            utils.kodi_log(u'Func: get_tmdb_id\n{0}'.format(exc), 1)
+            kodi_log(u'Func: get_tmdb_id\n{0}'.format(exc), 1)
             return
 
     def get_fanarttv_artwork(self, item, tmdb_type=None, tmdb_id=None, tvdb_id=None):
@@ -142,7 +144,7 @@ class CommonMonitorFunctions(object):
             lookup_id = tmdb_id or item.get('unique_ids', {}).get('tmdb')
             func = self.fanarttv.get_movies_all_artwork
         if lookup_id:
-            item['art'] = utils.merge_two_dicts(item.get('art', {}), func(lookup_id))
+            item['art'] = merge_two_dicts(item.get('art', {}), func(lookup_id))
         return item
 
     def get_trakt_ratings(self, item, trakt_type, season=None, episode=None):
@@ -155,7 +157,7 @@ class CommonMonitorFunctions(object):
             episode=episode)
         if not ratings:
             return item
-        item['infoproperties'] = utils.merge_two_dicts(item.get('infoproperties', {}), ratings)
+        item['infoproperties'] = merge_two_dicts(item.get('infoproperties', {}), ratings)
         return item
 
     def get_imdb_top250_rank(self, item):
@@ -163,7 +165,7 @@ class CommonMonitorFunctions(object):
             self.imdb_top250 = self.trakt_api.get_imdb_top250(id_type='tmdb')
         try:
             item['infolabels']['top250'] = self.imdb_top250.index(
-                utils.try_parse_int(item.get('unique_ids', {}).get('tmdb'))) + 1
+                try_int(item.get('unique_ids', {}).get('tmdb'))) + 1
         except Exception:
             pass
         return item
@@ -180,7 +182,7 @@ class CommonMonitorFunctions(object):
             return item
         ratings_awards = self.omdb_api.get_ratings_awards(imdb_id=imdb_id, cache_only=cache_only)
         if ratings_awards:
-            item['infoproperties'] = utils.merge_two_dicts(
+            item['infoproperties'] = merge_two_dicts(
                 item.get('infoproperties', {}), ratings_awards)
         return item
 

@@ -1,6 +1,8 @@
 import xbmc
 import json
-import resources.lib.utils as utils
+from resources.lib.helpers.plugin import kodi_log
+from resources.lib.helpers.parser import try_int, try_float, try_decode
+from resources.lib.helpers.setutils import find_dict_in_list
 
 
 def get_jsonrpc(method=None, params=None):
@@ -14,9 +16,9 @@ def get_jsonrpc(method=None, params=None):
         query["params"] = params
     try:
         jrpc = xbmc.executeJSONRPC(json.dumps(query))
-        response = json.loads(utils.try_decode_string(jrpc, errors='ignore'))
+        response = json.loads(try_decode(jrpc, errors='ignore'))
     except Exception as exc:
-        utils.kodi_log(u'TMDbHelper - JSONRPC Error:\n{}'.format(exc), 1)
+        kodi_log(u'TMDbHelper - JSONRPC Error:\n{}'.format(exc), 1)
         response = {}
     return response
 
@@ -69,9 +71,9 @@ def get_person_stats(person):
     infoproperties['numitems.dbid.tvshows'] = get_num_credits('tvshow', person)
     infoproperties['numitems.dbid.episodes'] = get_num_credits('episode', person)
     infoproperties['numitems.dbid.total'] = (
-        utils.try_parse_int(infoproperties.get('numitems.dbid.movies'))
-        + utils.try_parse_int(infoproperties.get('numitems.dbid.tvshows'))
-        + utils.try_parse_int(infoproperties.get('numitems.dbid.episodes')))
+        try_int(infoproperties.get('numitems.dbid.movies'))
+        + try_int(infoproperties.get('numitems.dbid.tvshows'))
+        + try_int(infoproperties.get('numitems.dbid.episodes')))
     return infoproperties
 
 
@@ -103,7 +105,7 @@ def _get_infolabels(item, key, dbid):
     infolabels['tracknumber'] = item.get('tracknumber')
     infolabels['rating'] = item.get('rating')
     infolabels['userrating'] = item.get('userrating')
-    infolabels['playcount'] = utils.try_parse_int(item.get('playcount'))
+    infolabels['playcount'] = try_int(item.get('playcount'))
     infolabels['overlay'] = item.get('overlay')
     infolabels['director'] = item.get('director') or []
     infolabels['mpaa'] = item.get('mpaa')
@@ -134,18 +136,18 @@ def _get_infolabels(item, key, dbid):
     infolabels['path'] = item.get('file')
     infolabels['trailer'] = item.get('trailer')
     infolabels['dateadded'] = item.get('dateadded')
-    infolabels['overlay'] = 5 if utils.try_parse_int(item.get('playcount')) > 0 and key in ['movie', 'episode'] else 4
+    infolabels['overlay'] = 5 if try_int(item.get('playcount')) > 0 and key in ['movie', 'episode'] else 4
     return infolabels
 
 
 def _get_infoproperties(item):
     infoproperties = {}
     infoproperties['watchedepisodes'] = item.get('watchedepisodes')
-    infoproperties['metacritic_rating'] = '{0:.1f}'.format(utils.try_parse_float(item.get('ratings', {}).get('metacritic', {}).get('rating')))
-    infoproperties['imdb_rating'] = '{0:.1f}'.format(utils.try_parse_float(item.get('ratings', {}).get('imdb', {}).get('rating')))
-    infoproperties['imdb_votes'] = '{:0,.0f}'.format(utils.try_parse_float(item.get('ratings', {}).get('imdb', {}).get('votes')))
-    infoproperties['tmdb_rating'] = '{0:.1f}'.format(utils.try_parse_float(item.get('ratings', {}).get('themoviedb', {}).get('rating')))
-    infoproperties['tmdb_votes'] = '{:0,.0f}'.format(utils.try_parse_float(item.get('ratings', {}).get('themoviedb', {}).get('votes')))
+    infoproperties['metacritic_rating'] = '{0:.1f}'.format(try_float(item.get('ratings', {}).get('metacritic', {}).get('rating')))
+    infoproperties['imdb_rating'] = '{0:.1f}'.format(try_float(item.get('ratings', {}).get('imdb', {}).get('rating')))
+    infoproperties['imdb_votes'] = '{:0,.0f}'.format(try_float(item.get('ratings', {}).get('imdb', {}).get('votes')))
+    infoproperties['tmdb_rating'] = '{0:.1f}'.format(try_float(item.get('ratings', {}).get('themoviedb', {}).get('rating')))
+    infoproperties['tmdb_votes'] = '{:0,.0f}'.format(try_float(item.get('ratings', {}).get('themoviedb', {}).get('votes')))
     return infoproperties
 
 
@@ -165,7 +167,7 @@ def _get_item_details(dbid=None, method=None, key=None, properties=None):
         return {}
     param_name = "{0}id".format(key)
     params = {
-        param_name: utils.try_parse_int(dbid),
+        param_name: try_int(dbid),
         "properties": properties}
     details = get_jsonrpc(method, params)
     if not details or not isinstance(details, dict):
@@ -213,7 +215,7 @@ class KodiLibrary(object):
                 return database
             xbmc.Monitor().waitForAbort(1)
             retries -= 1
-        utils.kodi_log(u'Getting KodiDB {} FAILED!'.format(dbtype), 1)
+        kodi_log(u'Getting KodiDB {} FAILED!'.format(dbtype), 1)
 
     def get_kodi_db(self, dbtype=None, tvshowid=None):
         if not dbtype:
@@ -250,24 +252,24 @@ class KodiLibrary(object):
         if not self.database or not info:
             return
         yearcheck = False
-        index_list = utils.find_dict_in_list(self.database, 'dbid', dbid) if dbid else []
+        index_list = find_dict_in_list(self.database, 'dbid', dbid) if dbid else []
         if not index_list and season:
-            index_list = utils.find_dict_in_list(self.database, 'season', utils.try_parse_int(season))
+            index_list = find_dict_in_list(self.database, 'season', try_int(season))
         if not index_list and imdb_id:
-            index_list = utils.find_dict_in_list(self.database, 'imdb_id', imdb_id)
+            index_list = find_dict_in_list(self.database, 'imdb_id', imdb_id)
         if not index_list and tmdb_id:
-            index_list = utils.find_dict_in_list(self.database, 'tmdb_id', str(tmdb_id))
+            index_list = find_dict_in_list(self.database, 'tmdb_id', str(tmdb_id))
         if not index_list and tvdb_id:
-            index_list = utils.find_dict_in_list(self.database, 'tvdb_id', str(tvdb_id))
+            index_list = find_dict_in_list(self.database, 'tvdb_id', str(tvdb_id))
         if not index_list:
             yearcheck = str(year) or 'dummynull'  # Also use year if matching by title to be certain we have correct item. Dummy value for True value that will always fail comparison check.
         if not index_list and originaltitle:
-            index_list = utils.find_dict_in_list(self.database, 'originaltitle', originaltitle)
+            index_list = find_dict_in_list(self.database, 'originaltitle', originaltitle)
         if not index_list and title:
-            index_list = utils.find_dict_in_list(self.database, 'title', title)
+            index_list = find_dict_in_list(self.database, 'title', title)
         for i in index_list:
             if season and episode:
-                if utils.try_parse_int(episode) == self.database[i].get('episode'):
+                if try_int(episode) == self.database[i].get('episode'):
                     return self.database[i].get(info)
             elif not yearcheck or yearcheck in str(self.database[i].get('year')):
                 return self.database[i].get(info)

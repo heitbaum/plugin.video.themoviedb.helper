@@ -1,16 +1,21 @@
 import xbmc
 import datetime
-import resources.lib.utils as utils
-from resources.lib.plugin import ADDON
+import resources.lib.helpers.window as window
+from resources.lib.helpers.plugin import ADDON, kodi_log
 from resources.lib.monitor.cronjob import CronJobMonitor
 from resources.lib.monitor.listitem import ListItemMonitor
+from threading import Thread
 
 
 # Workaround for "Failed to import _strptime because the import lockis held by another thread" error
-try:
-    datetime.datetime.strptime("2016", "%Y")
-except Exception as exc:
-    utils.kodi_log(exc, 1)
+datetime.datetime.strptime("2016", "%Y")
+
+
+def restart_service_monitor():
+    if window.get_property('ServiceStarted') == 'True':
+        window.wait_for_property('ServiceStop', value='True', set_property=True)  # Stop service
+    window.wait_for_property('ServiceStop', value=None)  # Wait until Service clears property
+    Thread(target=ServiceMonitor().run).start()
 
 
 class ServiceMonitor(object):
@@ -26,14 +31,14 @@ class ServiceMonitor(object):
         try:
             self.listitem_monitor.get_listitem()
         except Exception as exc:
-            utils.kodi_log(u'_on_listitem\n{}'.format(exc), 1)
+            kodi_log(u'_on_listitem\n{}'.format(exc), 1)
         xbmc.Monitor().waitForAbort(0.3)
 
     def _on_scroll(self):
         try:
             self.listitem_monitor.clear_on_scroll()
         except Exception as exc:
-            utils.kodi_log(u'_on_scroll\n{}'.format(exc), 1)
+            kodi_log(u'_on_scroll\n{}'.format(exc), 1)
         xbmc.Monitor().waitForAbort(1)
 
     def _on_fullscreen(self):
@@ -58,12 +63,12 @@ class ServiceMonitor(object):
         #     self.player_monitor.exit = True
         #     del self.player_monitor
         # self.clear_properties()
-        utils.get_property('ServiceStarted', clear_property=True)
-        utils.get_property('ServiceStop', clear_property=True)
+        window.get_property('ServiceStarted', clear_property=True)
+        window.get_property('ServiceStop', clear_property=True)
 
     def poller(self):
         while not xbmc.Monitor().abortRequested() and not self.exit:
-            if utils.get_property('ServiceStop'):
+            if window.get_property('ServiceStop'):
                 self.cron_job.exit = True
                 self.exit = True
 
@@ -119,6 +124,6 @@ class ServiceMonitor(object):
         self._on_exit()
 
     def run(self):
-        utils.get_property('ServiceStarted', 'True')
+        window.get_property('ServiceStarted', 'True')
         # self.cron_job.start()
         self.poller()

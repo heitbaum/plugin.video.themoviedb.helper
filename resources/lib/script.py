@@ -5,14 +5,13 @@
 import sys
 import xbmc
 import xbmcgui
-import resources.lib.utils as utils
-import resources.lib.basedir as basedir
+import resources.lib.items.basedir as basedir
 from resources.lib.fanarttv.api import FanartTV
 from resources.lib.tmdb.api import TMDb
-from resources.lib.plugin import ADDON
+from resources.lib.helpers.plugin import ADDON
 from resources.lib.trakt.sync import SyncItem
-from resources.lib.monitor.service import ServiceMonitor
-from threading import Thread
+from resources.lib.helpers.decorators import busy_dialog
+from resources.lib.helpers.parser import encode_url
 
 
 class Script(object):
@@ -53,23 +52,21 @@ class Script(object):
         if not container_update:
             return item
         path = 'Container.Update({})' if xbmc.getCondVisibility("Window.IsMedia") else 'ActivateWindow(videos,{},return)'
-        path = path.format(utils.get_url(path=item.get('path'), **item.get('params')))
+        path = path.format(encode_url(path=item.get('path'), **item.get('params')))
         xbmc.executebuiltin(path)
 
     def refresh_details(self, tmdb_id=None, tmdb_type=None, season=None, episode=None, **kwargs):
         if not tmdb_id or not tmdb_type:
             return
-        with utils.busy_dialog():
+        with busy_dialog():
             details = TMDb().get_details(tmdb_type, tmdb_id, season=season, episode=episode)
         if details:
             xbmcgui.Dialog().ok('TMDbHelper', ADDON.getLocalizedString(32234).format(tmdb_type, tmdb_id))
             xbmc.executebuiltin('Container.Refresh')
 
-    def restart_service(self):
-        if utils.get_property('ServiceStarted') == 'True':
-            utils.wait_for_property('ServiceStop', value='True', set_property=True)  # Stop service
-        utils.wait_for_property('ServiceStop', value=None)  # Wait until Service clears property
-        Thread(target=ServiceMonitor().run).start()
+    # def restart_service(self):
+    #     from resources.lib.monitor.service import restart_service_monitor
+    #     restart_service_monitor()
 
     def sync_item(self, trakt_type, unique_id, season=None, episode=None, id_type=None, **kwargs):
         SyncItem(trakt_type, unique_id, season, episode, id_type).sync()
@@ -89,5 +86,5 @@ class Script(object):
             return self.refresh_details(**self.params)
         if self.params.get('related_lists'):
             return self.related_lists(**self.params)
-        if self.params.get('restart_service'):
-            return self.restart_service()
+        # if self.params.get('restart_service'):
+        #     return self.restart_service()

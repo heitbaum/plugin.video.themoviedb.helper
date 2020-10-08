@@ -4,14 +4,17 @@ import xbmc
 import xbmcgui
 import xbmcaddon
 import datetime
-import resources.lib.rpc as rpc
-import resources.lib.utils as utils
-import resources.lib.constants as constants
+import resources.lib.helpers.rpc as rpc
+import resources.lib.helpers.window as window
+import resources.lib.helpers.constants as constants
 from resources.lib.tmdb.api import TMDb
-from resources.lib.listitem import ListItem
-from resources.lib.plugin import ADDON, PLUGINPATH, ADDONPATH
-from resources.lib.itemutils import ItemUtils
-from resources.lib.rpc import KodiLibrary
+from resources.lib.items.listitem import ListItem
+from resources.lib.helpers.plugin import ADDON, PLUGINPATH, ADDONPATH
+from resources.lib.items.utils import ItemUtils
+from resources.lib.helpers.rpc import KodiLibrary
+from resources.lib.helpers.parser import try_int, try_decode, try_encode
+from resources.lib.helpers.fileutils import get_files_in_folder, read_file, normalise_filesize
+from resources.lib.helpers.decorators import busy_dialog
 from json import loads, dumps
 from string import Formatter
 from collections import defaultdict
@@ -57,7 +60,7 @@ class KeyboardInputter(Thread):
 
 class Players(object):
     def __init__(self, tmdb_type, tmdb_id=None, season=None, episode=None, **kwargs):
-        with utils.busy_dialog():
+        with busy_dialog():
             self.players = self._get_players_from_file()
             self.details = self._get_item_details(tmdb_type, tmdb_id, season, episode)
             self.item = self._get_detailed_item(tmdb_type, tmdb_id, season, episode)
@@ -107,7 +110,7 @@ class Players(object):
         if not file:
             return
         if file.endswith('.strm'):
-            contents = utils.read_file(file)
+            contents = read_file(file)
             if contents.startswith('plugin://plugin.video.themoviedb.helper'):
                 return
         return file
@@ -132,7 +135,7 @@ class Players(object):
             return []
         dialog_play = self._get_local_item(tmdb_type)
         dialog_search = []
-        for k, v in sorted(self.players.items(), key=lambda i: utils.try_parse_int(i[1].get('priority')) or 1000):
+        for k, v in sorted(self.players.items(), key=lambda i: try_int(i[1].get('priority')) or 1000):
             if tmdb_type == 'movie':
                 if v.get('play_movie') and self._check_assert(v.get('assert', {}).get('play_movie', [])):
                     dialog_play.append(self._get_built_player(file=k, mode='play_movie', value=v))
@@ -151,9 +154,9 @@ class Players(object):
         if ADDON.getSettingBool('bundled_players'):
             basedirs += [constants.PLAYERS_BASEDIR_BUNDLED]
         for basedir in basedirs:
-            files = utils.get_files_in_folder(basedir, r'.*\.json')
+            files = get_files_in_folder(basedir, r'.*\.json')
             for file in files:
-                meta = loads(utils.read_file(basedir + file)) or {}
+                meta = loads(read_file(basedir + file)) or {}
                 plugins = meta.get('plugin') or 'plugin.undefined'  # Give dummy name to undefined plugins so that they fail the check
                 plugins = plugins if isinstance(plugins, list) else [plugins]  # Listify for simplicity of code
                 for i in plugins:
@@ -200,7 +203,7 @@ class Players(object):
         if tmdb_type == 'tv' and season is not None and episode is not None:
             item['id'] = item['epid'] = item['eptvdb'] = item.get('tvdb')
             item['title'] = details.infolabels.get('title')  # Set Episode Title
-            item['name'] = u'{0} S{1:02d}E{2:02d}'.format(item.get('showname'), utils.try_parse_int(season), utils.try_parse_int(episode))
+            item['name'] = u'{0} S{1:02d}E{2:02d}'.format(item.get('showname'), try_int(season), try_int(episode))
             item['season'] = season
             item['episode'] = episode
             item['showpremiered'] = details.infoproperties.get('tvshow.premiered')  # TODO: Add tvshow infoproperties in TMDb module
@@ -222,10 +225,10 @@ class Players(object):
                 item[key] = value.replace(',', '')
                 item[key + '_+'] = value.replace(',', '').replace(' ', '+')
                 item[key + '_-'] = value.replace(',', '').replace(' ', '-')
-                item[key + '_escaped'] = quote(quote(utils.try_encode_string(value)))
-                item[key + '_escaped+'] = quote(quote_plus(utils.try_encode_string(value)))
-                item[key + '_url'] = quote(utils.try_encode_string(value))
-                item[key + '_url+'] = quote_plus(utils.try_encode_string(value))
+                item[key + '_escaped'] = quote(quote(try_encode(value)))
+                item[key + '_escaped+'] = quote(quote_plus(try_encode(value)))
+                item[key + '_url'] = quote(try_encode(value))
+                item[key + '_url+'] = quote_plus(try_encode(value))
         return item
 
     def _select_player(self, detailed=True):
@@ -260,7 +263,7 @@ class Players(object):
         for x, f in enumerate(folder):
             for k, v in action.items():  # Iterate through our key (infolabel) / value (infolabel must match) pairs of our action
                 if k == 'position':  # We're looking for an item position not an infolabel
-                    if utils.try_parse_int(string_format_map(v, self.item)) != x + 1:  # Format our position value and add one since people are dumb and don't know that arrays start at 0
+                    if try_int(string_format_map(v, self.item)) != x + 1:  # Format our position value and add one since people are dumb and don't know that arrays start at 0
                         break  # Not the item position we want so let's go to next item in folder
                 elif not f.get(k) or not re.match(string_format_map(v, self.item), u'{}'.format(f.get(k, ''))):  # Format our value and check if it regex matches the infolabel key
                     break  # Item's key value doesn't match value we are looking for so let's got to next item in folder
@@ -285,7 +288,7 @@ class Players(object):
                 label_a = u'{} ({})'.format(label_a, f.get('year'))
 
             # Add season and episode numbers to label
-            if utils.try_parse_int(f.get('season', 0)) > 0 and utils.try_parse_int(f.get('episode', 0)) > 0:
+            if try_int(f.get('season', 0)) > 0 and try_int(f.get('episode', 0)) > 0:
                 label_a = u'{}x{}. {}'.format(f.get('season'), f.get('episode'), label_a)
 
             # Add various stream details to ListItem.Label2 (aka label_b)
@@ -306,9 +309,9 @@ class Players(object):
                     if i.get('language'):
                         label_b_list.append(u'{}'.format(i.get('language', '').upper()))
                 if sdv.get('duration'):
-                    label_b_list.append(u'{} mins'.format(utils.try_parse_int(sdv.get('duration', 0)) // 60))
+                    label_b_list.append(u'{} mins'.format(try_int(sdv.get('duration', 0)) // 60))
             if f.get('size'):
-                label_b_list.append(u'{}'.format(utils.normalise_filesize(f.get('size', 0))))
+                label_b_list.append(u'{}'.format(normalise_filesize(f.get('size', 0))))
             label_b = ' | '.join(label_b_list) if label_b_list else ''
 
             # Add item to select dialog list
@@ -346,7 +349,7 @@ class Players(object):
                 continue  # Go to next action
 
             # Get the next folder from the plugin
-            with utils.busy_dialog():
+            with busy_dialog():
                 folder = rpc.get_directory(string_format_map(path[0], self.item))
 
             # Kill our keyboard inputter thread
@@ -392,7 +395,7 @@ class Players(object):
     def get_resolved_path(self, return_listitem=True):
         if not self.item:
             return
-        utils.get_property('PlayerInfoString', clear_property=True)
+        window.get_property('PlayerInfoString', clear_property=True)
         path = self._get_resolved_path()
         if return_listitem:
             self.details.path = path[0] if path else None
@@ -411,7 +414,7 @@ class Players(object):
         xbmc.executebuiltin('Container.Update({},replace)'.format(folder_path))
         if not reset_focus:
             return
-        with utils.busy_dialog():
+        with busy_dialog():
             timeout = 20
             while not xbmc.Monitor().abortRequested() and xbmc.getInfoLabel("Container.FolderPath") != folder_path and timeout > 0:
                 xbmc.Monitor().waitForAbort(0.25)
@@ -426,7 +429,7 @@ class Players(object):
         if not reset_focus and folder_path:
             containerid = xbmc.getInfoLabel("System.CurrentControlID")
             current_pos = xbmc.getInfoLabel("Container({}).CurrentItem".format(containerid))
-            reset_focus = 'SetFocus({},{},absolute)'.format(containerid, utils.try_parse_int(current_pos) - 1)
+            reset_focus = 'SetFocus({},{},absolute)'.format(containerid, try_int(current_pos) - 1)
 
         # Get the resoved path
         listitem = self.get_resolved_path()
@@ -452,7 +455,7 @@ class Players(object):
             action = u'ActivateWindow(videos,{0},return)'.format(path)
 
         if action:
-            xbmc.executebuiltin(utils.try_encode_string(utils.try_decode_string(action)))
+            xbmc.executebuiltin(try_encode(try_decode(action)))
         if not action and not is_folder:
             xbmc.Player().play(path, listitem)
 

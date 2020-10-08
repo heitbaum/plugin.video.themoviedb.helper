@@ -1,5 +1,5 @@
-import resources.lib.plugin as plugin
-import resources.lib.constants as constants
+import resources.lib.helpers.plugin as plugin
+import resources.lib.helpers.constants as constants
 from resources.lib.tmdb.api import TMDb
 
 

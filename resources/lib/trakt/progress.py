@@ -1,10 +1,11 @@
 import datetime
-import resources.lib.utils as utils
-import resources.lib.cache as cache
-from resources.lib.cache import use_simple_cache
-from resources.lib.pages import PaginatedItems
+import resources.lib.helpers.cache as cache
+from resources.lib.helpers.cache import use_simple_cache
+from resources.lib.items.pages import PaginatedItems
 from resources.lib.trakt.items import TraktItems
-from resources.lib.trakt.functions import is_authorized, use_activity_cache
+from resources.lib.trakt.decorators import is_authorized, use_activity_cache
+from resources.lib.helpers.parser import try_int
+from resources.lib.helpers.timedate import convert_timestamp
 
 
 class _TraktProgress():
@@ -50,14 +51,14 @@ class _TraktProgress():
         Pass tvshow dict directly for speed otherwise will look-up ID from watched sync list
         Use count_progress to check progress against reset_at value rather than just count watched
         """
-        season = utils.try_parse_int(season) if season is not None else None
+        season = try_int(season) if season is not None else None
         if not tvshow and id_type and unique_id:
             tvshow = self.get_sync('watched', 'show', id_type).get(unique_id)
         if not tvshow:
             return
         reset_at = None
         if count_progress and tvshow.get('reset_at'):
-            reset_at = utils.convert_timestamp(tvshow['reset_at'])
+            reset_at = convert_timestamp(tvshow['reset_at'])
         count = 0
         for i in tvshow.get('seasons', []):
             if season is not None and i.get('number', -1) != season:
@@ -70,7 +71,7 @@ class _TraktProgress():
                 continue
             # Reset_at has a value so check progress rather than just watched count
             for j in i.get('episodes', []):
-                if utils.convert_timestamp(j.get('last_watched_at')) >= reset_at:
+                if convert_timestamp(j.get('last_watched_at')) >= reset_at:
                     continue
                 count += 1
         return count
@@ -107,7 +108,7 @@ class _TraktProgress():
             response = TraktItems(response, trakt_type='episode').configure_items(params_definition={
                 'info': 'details', 'tmdb_type': '{tmdb_type}', 'tmdb_id': '{tmdb_id}',
                 'season': '{season}', 'episode': '{number}'})
-            response = PaginatedItems(response, page=page, limit=utils.try_parse_int(limit) or 20)
+            response = PaginatedItems(response, page=page, limit=try_int(limit) or 20)
             return response.items + response.next_page
 
     @is_authorized
@@ -117,7 +118,7 @@ class _TraktProgress():
         response = TraktItems(response, trakt_type='episode').configure_items(params_definition={
             'info': 'details', 'tmdb_type': '{tmdb_type}', 'tmdb_id': '{tmdb_id}',
             'season': '{season}', 'episode': '{number}'})
-        response = PaginatedItems(response['items'], page=page, limit=utils.try_parse_int(limit) or 20)
+        response = PaginatedItems(response['items'], page=page, limit=try_int(limit) or 20)
         return response.items + response.next_page
 
     @is_authorized
@@ -166,13 +167,13 @@ class _TraktProgress():
         # Get show reset_at value
         reset_at = None
         if response.get('reset_at'):
-            reset_at = utils.convert_timestamp(response['reset_at'])
+            reset_at = convert_timestamp(response['reset_at'])
         # Get next episode items
         return [
             {'show': show, 'episode': {'number': episode.get('number'), 'season': season.get('number')}}
             for season in response.get('seasons', []) for episode in season
             if not episode.get('completed')
-            or (reset_at and utils.convert_timestamp(episode.get('last_watched_at')) < reset_at)]
+            or (reset_at and convert_timestamp(episode.get('last_watched_at')) < reset_at)]
 
     @is_authorized
     @use_activity_cache('movies', 'watched_at', cache_days=cache.CACHE_LONG)
@@ -182,8 +183,8 @@ class _TraktProgress():
     @is_authorized
     @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_LONG)
     def get_episode_playcount(self, unique_id, id_type, season, episode):
-        season = utils.try_parse_int(season, fallback=-2)  # Make fallback -2 to prevent matching on 0
-        episode = utils.try_parse_int(episode, fallback=-2)  # Make fallback -2 to prevent matching on 0
+        season = try_int(season, fallback=-2)  # Make fallback -2 to prevent matching on 0
+        episode = try_int(episode, fallback=-2)  # Make fallback -2 to prevent matching on 0
         for i in self.get_sync('watched', 'show', id_type).get(unique_id, {}).get('seasons', []):
             if i.get('number', -1) != season:
                 continue
@@ -202,7 +203,7 @@ class _TraktProgress():
     @is_authorized
     @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
     def get_season_episodes_airedcount(self, unique_id, id_type, season):
-        season = utils.try_parse_int(season, fallback=-2)
+        season = try_int(season, fallback=-2)
         slug = self.get_id(unique_id, id_type, trakt_type='show', output_type='slug')
         for i in self.get_request_sc('shows', slug, 'seasons', extended='full'):
             if i.get('number', -1) == season:
@@ -216,7 +217,7 @@ class _TraktProgress():
     @use_simple_cache(cache_days=cache.CACHE_SHORT)
     def get_calendar_episodes(self, startdate=0, days=1):
         # Broaden date range in case utc conversion bumps into different day
-        mod_date = utils.try_parse_int(startdate) - 1
-        mod_days = utils.try_parse_int(days) + 2
+        mod_date = try_int(startdate) - 1
+        mod_days = try_int(days) + 2
         date = datetime.date.today() + datetime.timedelta(days=mod_date)
         return self.get_calendar('shows', True, start_date=date.strftime('%Y-%m-%d'), days=mod_days)

@@ -1,8 +1,9 @@
 import xbmc
 import datetime
-import resources.lib.utils as utils
+from resources.lib.helpers.parser import try_int
 from threading import Thread
-from resources.lib.plugin import ADDON
+from resources.lib.helpers.plugin import ADDON
+from resources.lib.helpers.timedate import convert_timestamp
 
 
 class CronJobMonitor(Thread):
@@ -14,9 +15,9 @@ class CronJobMonitor(Thread):
 
     def run(self):
         xbmc.Monitor().waitForAbort(600)  # Wait 10 minutes before doing updates to give boot time
-        self.next_time = datetime.datetime.combine(datetime.datetime.today(), datetime.time(utils.try_parse_int(self.update_hour)))  # Get today at hour
+        self.next_time = datetime.datetime.combine(datetime.datetime.today(), datetime.time(try_int(self.update_hour)))  # Get today at hour
         self.last_time = xbmc.getInfoLabel('Skin.String(TMDbHelper.AutoUpdate.LastTime)')  # Get last update
-        self.last_time = utils.convert_timestamp(self.last_time) if self.last_time else None
+        self.last_time = convert_timestamp(self.last_time) if self.last_time else None
         if self.last_time and self.last_time > self.next_time:
             self.next_time += datetime.timedelta(hours=24)  # Already updated today so set for tomorrow
 

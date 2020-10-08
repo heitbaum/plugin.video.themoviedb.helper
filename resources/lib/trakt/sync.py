@@ -4,9 +4,10 @@
 # License: GPL v.3 https://www.gnu.org/copyleft/gpl.html
 import xbmc
 import xbmcgui
-import resources.lib.utils as utils
+from resources.lib.helpers.decorators import busy_dialog
+from resources.lib.helpers.parser import try_int
 from resources.lib.trakt.api import TraktAPI
-from resources.lib.plugin import ADDON
+from resources.lib.helpers.plugin import ADDON
 
 
 def _sync_item_methods():
@@ -39,8 +40,8 @@ class SyncItem():
     def __init__(self, trakt_type, unique_id, season=None, episode=None, id_type=None):
         self.trakt_type = trakt_type
         self.unique_id = unique_id
-        self.season = utils.try_parse_int(season) if season is not None else None
-        self.episode = utils.try_parse_int(episode) if episode is not None else None
+        self.season = try_int(season) if season is not None else None
+        self.episode = try_int(episode) if episode is not None else None
         self.id_type = id_type
 
     def _build_choices(self):
@@ -56,7 +57,7 @@ class SyncItem():
         return {'name': name_add, 'method': method}
 
     def _sync_userlist(self):
-        with utils.busy_dialog():
+        with busy_dialog():
             list_sync = TraktAPI().get_list_of_lists('users/me/lists') or []
             list_sync.append({'label': ADDON.getLocalizedString(32299)})
         x = xbmcgui.Dialog().contextmenu([i.get('label') for i in list_sync])
@@ -67,7 +68,7 @@ class SyncItem():
         list_slug = list_sync[x].get('params', {}).get('list_slug')
         if not list_slug:
             return
-        with utils.busy_dialog():
+        with busy_dialog():
             return TraktAPI().add_list_item(
                 list_slug, self.trakt_type, self.unique_id, self.id_type,
                 season=self.season, episode=self.episode)
@@ -75,13 +76,13 @@ class SyncItem():
     def _sync_item(self, method):
         if method == 'userlist':
             return self._sync_userlist()
-        with utils.busy_dialog():
+        with busy_dialog():
             return TraktAPI().sync_item(
                 method, self.trakt_type, self.unique_id, self.id_type,
                 season=self.season, episode=self.episode)
 
     def sync(self):
-        with utils.busy_dialog():
+        with busy_dialog():
             choices = self._build_choices()
         x = xbmcgui.Dialog().contextmenu([i.get('name') for i in choices])
         if x == -1:

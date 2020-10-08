@@ -1,5 +1,5 @@
-import resources.lib.utils as utils
-import resources.lib.cache as cache
+import resources.lib.helpers.cache as cache
+from resources.lib.helpers.fileutils import set_pickle, get_pickle
 
 
 def is_authorized(func):
@@ -21,13 +21,13 @@ def use_activity_cache(activity_type=None, activity_key=None, cache_days=None, p
                 return
 
             # Setup getter/setter cache funcs
-            func_get = utils.get_pickle if pickle_object else cache.get_cache
-            func_set = utils.set_pickle if pickle_object else cache.set_cache
+            func_get = get_pickle if pickle_object else cache.get_cache
+            func_set = set_pickle if pickle_object else cache.set_cache
 
             # Set cache_name
             cache_name = '{}.'.format(func.__name__)
             cache_name = '{}.{}'.format(self.__class__.__name__, cache_name)
-            cache_name = utils.format_name(cache_name, *args, **kwargs)
+            cache_name = cache.format_name(cache_name, *args, **kwargs)
 
             # Cached response last_activity timestamp matches last_activity from trakt so no need to refresh
             last_activity = self._get_last_activity(activity_type, activity_key)

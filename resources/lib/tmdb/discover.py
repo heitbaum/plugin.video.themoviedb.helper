@@ -4,11 +4,13 @@
 import xbmc
 import xbmcgui
 import datetime
-import resources.lib.cache as cache
-import resources.lib.utils as utils
-import resources.lib.plugin as plugin
+import resources.lib.helpers.cache as cache
+import resources.lib.helpers.window as window
+import resources.lib.helpers.plugin as plugin
 from resources.lib.tmdb.api import TMDb
-from resources.lib.plugin import ADDONPATH, ADDON, PLUGINPATH
+from resources.lib.helpers.plugin import ADDONPATH, ADDON, PLUGINPATH
+from resources.lib.helpers.parser import try_int, try_decode, encode_url
+from resources.lib.helpers.setutils import merge_two_dicts, split_items
 
 
 RELATIVE_DATES = [
@@ -592,7 +594,7 @@ def _win_prop(name, prefix=None, **kwargs):
     if not name:
         return
     prefix = 'UserDiscover.{}'.format(prefix) if prefix else 'UserDiscover'
-    return utils.get_property('{}.{}'.format(prefix, name), **kwargs)
+    return window.get_property('{}.{}'.format(prefix, name), **kwargs)
 
 
 def _clear_properties(methods=ALL_METHODS):
@@ -615,7 +617,7 @@ def _confirm_add(method):
 def _get_query(tmdb_type, method, query=None, header=None, use_details=False):
     item = TMDb().get_tmdb_id_from_query(
         tmdb_type=tmdb_type,
-        query=query or utils.try_decode_string(xbmcgui.Dialog().input(header)),
+        query=query or try_decode(xbmcgui.Dialog().input(header)),
         header=header or '{} {}'.format(ADDON.getLocalizedString(32276), tmdb_type),
         use_details=use_details,
         get_listitem=True)
@@ -712,13 +714,13 @@ def _get_separator():
 
 
 def _get_numeric(method, header=None):
-    value = utils.try_decode_string(xbmcgui.Dialog().input(
+    value = try_decode(xbmcgui.Dialog().input(
         header, type=xbmcgui.INPUT_NUMERIC, defaultt=_win_prop(method)))
     return {'value': value, 'label': value, 'method': method}
 
 
 def _get_keyboard(method, header=None):
-    value = utils.try_decode_string(xbmcgui.Dialog().input(
+    value = try_decode(xbmcgui.Dialog().input(
         header, defaultt=_win_prop(method)))
     return {'value': value, 'label': value, 'method': method}
 
@@ -743,7 +745,7 @@ def _edit_rules(idx=-1):
 
 
 def _save_rules(tmdb_type):
-    my_idx = utils.try_parse_int(_win_prop('save_index'), fallback=-1)
+    my_idx = try_int(_win_prop('save_index'), fallback=-1)
     params = _get_discover_params(tmdb_type)
     labels = _get_discover_params(tmdb_type, get_labels=True)
     label = _win_prop('save_label') if my_idx != -1 else xbmcgui.Dialog().input(ADDON.getLocalizedString(32241))
@@ -805,39 +807,39 @@ def _translate_discover_params(tmdb_type, params):
 
     if params.get('with_genres'):
         params['with_genres'] = TMDb().get_translated_list(
-            utils.split_items(params.get('with_genres')), lookup_genre, separator=with_separator)
+            split_items(params.get('with_genres')), lookup_genre, separator=with_separator)
 
     if params.get('without_genres'):
         params['without_genres'] = TMDb().get_translated_list(
-            utils.split_items(params.get('without_genres')), lookup_genre, separator=with_separator)
+            split_items(params.get('without_genres')), lookup_genre, separator=with_separator)
 
     if params.get('with_keywords'):
         params['with_keywords'] = TMDb().get_translated_list(
-            utils.split_items(params.get('with_keywords')), lookup_keyword, separator=with_separator)
+            split_items(params.get('with_keywords')), lookup_keyword, separator=with_separator)
 
     if params.get('without_keywords'):
         params['without_keywords'] = TMDb().get_translated_list(
-            utils.split_items(params.get('without_keywords')), lookup_keyword, separator=with_separator)
+            split_items(params.get('without_keywords')), lookup_keyword, separator=with_separator)
 
     if params.get('with_companies'):
         params['with_companies'] = TMDb().get_translated_list(
-            utils.split_items(params.get('with_companies')), lookup_company, separator='NONE')
+            split_items(params.get('with_companies')), lookup_company, separator='NONE')
 
     if params.get('with_people'):
         params['with_people'] = TMDb().get_translated_list(
-            utils.split_items(params.get('with_people')), lookup_person, separator=with_separator)
+            split_items(params.get('with_people')), lookup_person, separator=with_separator)
 
     if params.get('with_cast'):
         params['with_cast'] = TMDb().get_translated_list(
-            utils.split_items(params.get('with_cast')), lookup_person, separator=with_separator)
+            split_items(params.get('with_cast')), lookup_person, separator=with_separator)
 
     if params.get('with_crew'):
         params['with_crew'] = TMDb().get_translated_list(
-            utils.split_items(params.get('with_crew')), lookup_person, separator=with_separator)
+            split_items(params.get('with_crew')), lookup_person, separator=with_separator)
 
     if params.get('with_release_type'):
         params['with_release_type'] = TMDb().get_translated_list(
-            utils.split_items(params.get('with_release_type')), None, separator='OR')
+            split_items(params.get('with_release_type')), None, separator='OR')
 
     # Translate relative dates based upon today's date
     for i in RELATIVE_DATES:
@@ -846,10 +848,10 @@ def _translate_discover_params(tmdb_type, params):
         if not datecode or all(x not in datecode for x in ['t-', 't+']):
             continue  # No value or not a relative date so skip
         elif 't-' in datecode:
-            days = utils.try_parse_int(datecode.replace('t-', ''))
+            days = try_int(datecode.replace('t-', ''))
             date = datetime.datetime.now() - datetime.timedelta(days=days)
         elif 't+' in datecode:
-            days = utils.try_parse_int(datecode.replace('t+', ''))
+            days = try_int(datecode.replace('t+', ''))
             date = datetime.datetime.now() + datetime.timedelta(days=days)
         params[i] = date.strftime("%Y-%m-%d")
 
@@ -872,19 +874,19 @@ class UserDiscoverLists():
         params.pop('clear_cache', None)
         params.pop('method', None)
         params.pop('idx', None)
-        self.container_update = '{},replace'.format(utils.get_url(PLUGINPATH, **params))
+        self.container_update = '{},replace'.format(encode_url(PLUGINPATH, **params))
 
         if kwargs.get('clear_cache') == 'True':
             cache.set_search_history('discover', clear_cache=True)
 
         elif kwargs.get('method') == 'delete':
-            idx = utils.try_parse_int(kwargs.get('idx', -1))
+            idx = try_int(kwargs.get('idx', -1))
             if idx == -1:
                 return
             cache.set_search_history('discover', replace=idx)
 
         elif kwargs.get('method') == 'rename':
-            idx = utils.try_parse_int(kwargs.get('idx', -1))
+            idx = try_int(kwargs.get('idx', -1))
             if idx == -1:
                 return
             history = cache.get_search_history('discover')
@@ -899,12 +901,12 @@ class UserDiscoverLists():
 
     def list_discoverdir(self, **kwargs):
         items = []
-        params = utils.merge_two_dicts(kwargs, {'info': 'user_discover'})
+        params = merge_two_dicts(kwargs, {'info': 'user_discover'})
         artwork = {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}
         for i in ['movie', 'tv']:
             item = {
                 'label': '{} {}'.format(ADDON.getLocalizedString(32174), plugin.convert_type(i, plugin.TYPE_PLURAL)),
-                'params': utils.merge_two_dicts(params, {'tmdb_type': i}),
+                'params': merge_two_dicts(params, {'tmdb_type': i}),
                 'infoproperties': {'specialsort': 'top'},
                 'art': artwork}
             items.append(item)
@@ -912,7 +914,7 @@ class UserDiscoverLists():
         history = cache.get_search_history('discover')
         history.reverse()
         for x, i in enumerate(history):
-            item_params = utils.merge_two_dicts(kwargs, i.get('params', {}))
+            item_params = merge_two_dicts(kwargs, i.get('params', {}))
             edit_params = {'info': 'user_discover', 'tmdb_type': item_params.get('tmdb_type'), 'method': 'edit', 'idx': x}
             name_params = {'info': 'dir_discover', 'tmdb_type': item_params.get('tmdb_type'), 'method': 'rename', 'idx': x}
             dele_params = {'info': 'dir_discover', 'tmdb_type': item_params.get('tmdb_type'), 'method': 'delete', 'idx': x}
@@ -921,15 +923,15 @@ class UserDiscoverLists():
                 'params': item_params,
                 'art': artwork,
                 'context_menu': [
-                    (xbmc.getLocalizedString(21435), 'Container.Update({})'.format(utils.get_url(PLUGINPATH, **edit_params))),
-                    (xbmc.getLocalizedString(118), 'Container.Update({})'.format(utils.get_url(PLUGINPATH, **name_params))),
-                    (xbmc.getLocalizedString(117), 'Container.Update({})'.format(utils.get_url(PLUGINPATH, **dele_params)))]}
+                    (xbmc.getLocalizedString(21435), 'Container.Update({})'.format(encode_url(PLUGINPATH, **edit_params))),
+                    (xbmc.getLocalizedString(118), 'Container.Update({})'.format(encode_url(PLUGINPATH, **name_params))),
+                    (xbmc.getLocalizedString(117), 'Container.Update({})'.format(encode_url(PLUGINPATH, **dele_params)))]}
             items.append(item)
         if history:
             item = {
                 'label': ADDON.getLocalizedString(32237),
                 'art': artwork,
-                'params': utils.merge_two_dicts(params, {'info': 'dir_discover', 'clear_cache': 'True'})}
+                'params': merge_two_dicts(params, {'info': 'dir_discover', 'clear_cache': 'True'})}
             items.append(item)
         return items
 
@@ -942,7 +944,7 @@ class UserDiscoverLists():
         elif method == 'save':
             _save_rules(tmdb_type)
         elif method == 'edit':
-            _edit_rules(idx=utils.try_parse_int(kwargs.get('idx'), fallback=-1))
+            _edit_rules(idx=try_int(kwargs.get('idx'), fallback=-1))
         else:
             _add_rule(tmdb_type, method)
 

@@ -1,14 +1,15 @@
 import xbmc
-import resources.lib.utils as utils
+import resources.lib.helpers.window as window
 import resources.lib.monitor.common as monitor_common
 from resources.lib.monitor.common import CommonMonitorFunctions
 from resources.lib.monitor.images import ImageFunctions
-from resources.lib.plugin import ADDON
+from resources.lib.helpers.plugin import ADDON, kodi_log
+from resources.lib.helpers.parser import try_decode
 from threading import Thread
 
 
 def get_container():
-    widget_id = utils.get_property('WidgetContainer', is_type=int)
+    widget_id = window.get_property('WidgetContainer', is_type=int)
     if widget_id:
         return 'Container({0}).'.format(widget_id)
     return 'Container.'
@@ -52,11 +53,11 @@ class ListItemMonitor(CommonMonitorFunctions):
 
     def get_query(self):
         if self.get_infolabel('TvShowTitle'):
-            return utils.try_decode_string(self.get_infolabel('TvShowTitle'))
+            return try_decode(self.get_infolabel('TvShowTitle'))
         if self.get_infolabel('Title'):
-            return utils.try_decode_string(self.get_infolabel('Title'))
+            return try_decode(self.get_infolabel('Title'))
         if self.get_infolabel('Label'):
-            return utils.try_decode_string(self.get_infolabel('Label'))
+            return try_decode(self.get_infolabel('Label'))
 
     def get_season(self):
         if self.dbtype == 'episodes':
@@ -145,7 +146,7 @@ class ListItemMonitor(CommonMonitorFunctions):
                     self.crop_img.start()
 
         except Exception as exc:
-            utils.kodi_log(u'Func: process_artwork\n{}'.format(exc), 1)
+            kodi_log(u'Func: process_artwork\n{}'.format(exc), 1)
 
     def process_ratings(self, details, tmdb_type, tmdb_id):
         try:
@@ -164,7 +165,7 @@ class ListItemMonitor(CommonMonitorFunctions):
                 return
             self.set_iter_properties(details.get('infoproperties', {}), monitor_common.SETPROP_RATINGS)
         except Exception as exc:
-            utils.kodi_log(u'Func: process_ratings\n{}'.format(exc), 1)
+            kodi_log(u'Func: process_ratings\n{}'.format(exc), 1)
 
     def clear_on_scroll(self):
         if not self.properties and not self.index_properties:
@@ -205,7 +206,7 @@ class ListItemMonitor(CommonMonitorFunctions):
             return self.clear_properties()
 
         # Set our is_updating flag
-        utils.get_property('IsUpdating', 'True')
+        window.get_property('IsUpdating', 'True')
 
         # If the folder changed let's clear all the properties before doing a look-up
         # Possible that our new look-up will fail so good to have a clean slate
@@ -215,35 +216,35 @@ class ListItemMonitor(CommonMonitorFunctions):
         # Blur Image
         if xbmc.getCondVisibility("Skin.HasSetting(TMDbHelper.EnableBlur)"):
             self.blur_img = ImageFunctions(method='blur', artwork=self.get_artwork(
-                source=utils.get_property('Blur.SourceImage'),
-                fallback=utils.get_property('Blur.Fallback')))
+                source=window.get_property('Blur.SourceImage'),
+                fallback=window.get_property('Blur.Fallback')))
             self.blur_img.setName('blur_img')
             self.blur_img.start()
 
         # Desaturate Image
         if xbmc.getCondVisibility("Skin.HasSetting(TMDbHelper.EnableDesaturate)"):
             self.desaturate_img = ImageFunctions(method='desaturate', artwork=self.get_artwork(
-                source=utils.get_property('Desaturate.SourceImage'),
-                fallback=utils.get_property('Desaturate.Fallback')))
+                source=window.get_property('Desaturate.SourceImage'),
+                fallback=window.get_property('Desaturate.Fallback')))
             self.desaturate_img.setName('desaturate_img')
             self.desaturate_img.start()
 
         # CompColors
         if xbmc.getCondVisibility("Skin.HasSetting(TMDbHelper.EnableColors)"):
             self.colors_img = ImageFunctions(method='colors', artwork=self.get_artwork(
-                source=utils.get_property('Colors.SourceImage'),
-                fallback=utils.get_property('Colors.Fallback')))
+                source=window.get_property('Colors.SourceImage'),
+                fallback=window.get_property('Colors.Fallback')))
             self.colors_img.setName('colors_img')
             self.colors_img.start()
 
         # Allow early exit to only do image manipulations
         if xbmc.getCondVisibility("!Skin.HasSetting(TMDbHelper.Service)"):
-            return utils.get_property('IsUpdating', clear_property=True)
+            return window.get_property('IsUpdating', clear_property=True)
 
         # Need a TMDb type to do a details look-up so exit if we don't have one
         tmdb_type = self.get_tmdb_type()
         if not tmdb_type:
-            return utils.get_property('IsUpdating', clear_property=True)
+            return window.get_property('IsUpdating', clear_property=True)
 
         # Immediately clear some properties like ratings and artwork
         # Don't want these to linger on-screen if the look-up takes a moment
@@ -259,7 +260,7 @@ class ListItemMonitor(CommonMonitorFunctions):
         details = self.tmdb_api.get_details(tmdb_type, tmdb_id, season=self.season, episode=self.episode)
         if not details:
             self.clear_properties()
-            return utils.get_property('IsUpdating', clear_property=True)
+            return window.get_property('IsUpdating', clear_property=True)
 
         # TODO: Need to update Next Aired with a shorter cache time than details
         # if tmdb_type == 'tv' and details.get('infoproperties'):
@@ -276,7 +277,7 @@ class ListItemMonitor(CommonMonitorFunctions):
             if self.dbtype in ['episodes', 'seasons']:
                 ignore_keys = monitor_common.SETMAIN_ARTWORK
             self.clear_properties(ignore_keys=ignore_keys)
-            return utils.get_property('IsUpdating', clear_property=True)
+            return window.get_property('IsUpdating', clear_property=True)
 
         # TODO: Get person stats
         # if tmdb_type == 'person':
@@ -289,4 +290,4 @@ class ListItemMonitor(CommonMonitorFunctions):
             thread_ratings.start()
 
         self.set_properties(details)
-        utils.get_property('IsUpdating', clear_property=True)
+        window.get_property('IsUpdating', clear_property=True)

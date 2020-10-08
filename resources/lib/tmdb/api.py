@@ -1,14 +1,17 @@
 import xbmc
 import xbmcgui
 import datetime
-import resources.lib.plugin as plugin
-import resources.lib.utils as utils
-import resources.lib.cache as cache
+import resources.lib.helpers.plugin as plugin
+import resources.lib.helpers.cache as cache
 from resources.lib.request.api import RequestAPI
-from resources.lib.downloader import Downloader
-from resources.lib.listitem import ListItem
-from resources.lib.plugin import ADDON, PLUGINPATH
-from resources.lib.constants import TMDB_ALL_ITEMS_LISTS
+from resources.lib.helpers.downloader import Downloader
+from resources.lib.items.listitem import ListItem
+from resources.lib.helpers.plugin import ADDON, PLUGINPATH
+from resources.lib.helpers.constants import TMDB_ALL_ITEMS_LISTS
+from resources.lib.helpers.parser import try_int, try_float
+from resources.lib.helpers.timedate import format_date, age_difference
+from resources.lib.helpers.setutils import dict_to_list, merge_two_items, del_empty_keys, iter_props, get_params
+from resources.lib.helpers.fileutils import use_pickle
 from json import loads
 
 
@@ -77,7 +80,7 @@ class TMDb(RequestAPI):
             for i in sorted(request, key=lambda k: k.get('first_air_date', ''), reverse=True):
                 if not i.get('first_air_date'):
                     continue
-                if utils.try_parse_int(i.get('first_air_date', '9999')[:4]) <= utils.try_parse_int(episode_year):
+                if try_int(i.get('first_air_date', '9999')[:4]) <= try_int(episode_year):
                     if query in [i.get('name'), i.get('original_name')]:
                         return i.get('id')
         return request[0].get('id')
@@ -143,7 +146,7 @@ class TMDb(RequestAPI):
 
     def get_genre_by_id(self, genre_id):
         for k, v in TMDB_GENRE_IDS.items():
-            if v == utils.try_parse_int(genre_id):
+            if v == try_int(genre_id):
                 return k
 
     def get_genres_by_id(self, genre_ids):
@@ -178,7 +181,7 @@ class TMDb(RequestAPI):
         if item.get('seasons'):
             count = 0
             for i in item.get('seasons', []):
-                count += utils.try_parse_int(i.get('episode_count', 0))
+                count += try_int(i.get('episode_count', 0))
             return count
 
     def get_season_infolabel(self, item):
@@ -194,7 +197,7 @@ class TMDb(RequestAPI):
         infolabels['title'] = self.get_title(item)
         infolabels['originaltitle'] = item.get('original_title')
         infolabels['mediatype'] = plugin.convert_type(tmdb_type, plugin.TYPE_DB)
-        infolabels['rating'] = '{:0,.1f}'.format(utils.try_parse_float(item.get('vote_average')))
+        infolabels['rating'] = '{:0,.1f}'.format(try_float(item.get('vote_average')))
         infolabels['votes'] = '{:0,.0f}'.format(item.get('vote_count')) if item.get('vote_count') else None
         infolabels['plot'] = item.get('overview') or item.get('biography') or item.get('content')
         infolabels['premiered'] = item.get('air_date') or item.get('release_date') or item.get('first_air_date') or ''
@@ -204,13 +207,13 @@ class TMDb(RequestAPI):
         infolabels['season'] = self.get_season_infolabel(item)
         infolabels['episode'] = self.get_episode_infolabel(item)
         infolabels = self._get_detailed_infolabels(item, tmdb_type, infolabels) if detailed else infolabels
-        return utils.del_empty_keys(infolabels)
+        return del_empty_keys(infolabels)
 
     def _get_detailed_infolabels(self, item, tmdb_type, infolabels=None):
         infolabels = infolabels or {}
-        infolabels['genre'] = utils.dict_to_list(item.get('genres', []), 'name')
+        infolabels['genre'] = dict_to_list(item.get('genres', []), 'name')
         infolabels['imdbnumber'] = item.get('imdb_id') or item.get('external_ids', {}).get('imdb_id')
-        infolabels['country'] = utils.dict_to_list(item.get('production_countries', []), 'name')
+        infolabels['country'] = dict_to_list(item.get('production_countries', []), 'name')
         infolabels['status'] = item.get('status')
         infolabels['tagline'] = item.get('tagline')
         infolabels['director'] = [i.get('name') for i in item.get('credits', {}).get('crew', []) if i.get('name') and i.get('job') == 'Director']
@@ -218,13 +221,13 @@ class TMDb(RequestAPI):
         infolabels['trailer'] = self.get_trailer(item)
         infolabels['mpaa'] = self.get_mpaa_rating(item)
         if item.get('episode_run_time'):
-            infolabels['duration'] = utils.try_parse_int(item['episode_run_time'][0]) * 60
+            infolabels['duration'] = try_int(item['episode_run_time'][0]) * 60
         elif item.get('runtime'):
-            infolabels['duration'] = utils.try_parse_int(item['runtime']) * 60
+            infolabels['duration'] = try_int(item['runtime']) * 60
         if item.get('networks'):
-            infolabels['studio'] = infolabels.setdefault('studio', []) + utils.dict_to_list(item.get('networks'), 'name')
+            infolabels['studio'] = infolabels.setdefault('studio', []) + dict_to_list(item.get('networks'), 'name')
         elif item.get('production_companies'):
-            infolabels['studio'] = utils.dict_to_list(item.get('production_companies', []), 'name')
+            infolabels['studio'] = dict_to_list(item.get('production_companies', []), 'name')
         if item.get('belongs_to_collection'):
             infolabels['set'] = item['belongs_to_collection'].get('name')
         return infolabels
@@ -238,7 +241,7 @@ class TMDb(RequestAPI):
         infoproperties['job'] = item.get('job')
         infoproperties['department'] = item.get('department')
         infoproperties = self._get_detailed_infoproperties(item, tmdb_type, infoproperties) if detailed else infoproperties
-        return utils.del_empty_keys(infoproperties)
+        return del_empty_keys(infoproperties)
 
     def _get_detailed_infoproperties(self, item, tmdb_type, infoproperties=None):
         infoproperties = infoproperties or {}
@@ -253,52 +256,52 @@ class TMDb(RequestAPI):
             if item.get('revenue'):
                 infoproperties['revenue'] = '${:0,.0f}'.format(item['revenue'])
             if item.get('spoken_languages'):
-                infoproperties = utils.iter_props(
+                infoproperties = iter_props(
                     item['spoken_languages'], 'language', infoproperties,
                     name='name', iso='iso_639_1')
             if item.get('keywords', {}).get('keywords'):
-                infoproperties = utils.iter_props(
+                infoproperties = iter_props(
                     item['keywords']['keywords'], 'keyword', infoproperties,
                     name='name', tmdb_id='id')
             if item.get('reviews', {}).get('results'):
-                infoproperties = utils.iter_props(
+                infoproperties = iter_props(
                     item['reviews']['results'], 'review', infoproperties,
                     content='content', tmdb_id='id', author='author')
         elif tmdb_type == 'tv':
             infoproperties['type'] = item.get('type')
             if item.get('networks'):
-                infoproperties = utils.iter_props(
+                infoproperties = iter_props(
                     item['networks'], 'studio', infoproperties,
                     name='name', tmdb_id='id')
-                infoproperties = utils.iter_props(
+                infoproperties = iter_props(
                     item['networks'], 'studio', infoproperties,
                     icon='logo_path', func=self.get_imagepath)
             if item.get('created_by'):
-                infoproperties = utils.iter_props(
+                infoproperties = iter_props(
                     item['created_by'], 'creator', infoproperties,
                     name='name', tmdb_id='id')
-                infoproperties = utils.iter_props(
+                infoproperties = iter_props(
                     item['created_by'], 'creator', infoproperties,
                     thumb='profile_path', func=self.get_imagepath)
                 infoproperties['creator'] = ' / '.join([i['name'] for i in item.get('created_by', []) if i.get('name')])
             if item.get('last_episode_to_air'):
                 i = item.get('last_episode_to_air', {})
-                infoproperties['last_aired'] = utils.date_to_format(i.get('air_date'), xbmc.getRegion('dateshort'))
-                infoproperties['last_aired.long'] = utils.date_to_format(i.get('air_date'), xbmc.getRegion('datelong'))
-                infoproperties['last_aired.day'] = utils.date_to_format(i.get('air_date'), "%A")
+                infoproperties['last_aired'] = format_date(i.get('air_date'), xbmc.getRegion('dateshort'))
+                infoproperties['last_aired.long'] = format_date(i.get('air_date'), xbmc.getRegion('datelong'))
+                infoproperties['last_aired.day'] = format_date(i.get('air_date'), "%A")
                 infoproperties['last_aired.episode'] = i.get('episode_number')
                 infoproperties['last_aired.name'] = i.get('name')
                 infoproperties['last_aired.tmdb_id'] = i.get('id')
                 infoproperties['last_aired.plot'] = i.get('overview')
                 infoproperties['last_aired.season'] = i.get('season_number')
-                infoproperties['last_aired.rating'] = '{:0,.1f}'.format(utils.try_parse_float(i.get('vote_average')))
+                infoproperties['last_aired.rating'] = '{:0,.1f}'.format(try_float(i.get('vote_average')))
                 infoproperties['last_aired.votes'] = i.get('vote_count')
                 infoproperties['last_aired.thumb'] = self.get_imagepath(i.get('still_path'))
             if item.get('next_episode_to_air'):
                 i = item.get('next_episode_to_air', {})
-                infoproperties['next_aired'] = utils.date_to_format(i.get('air_date'), xbmc.getRegion('dateshort'))
-                infoproperties['next_aired.long'] = utils.date_to_format(i.get('air_date'), xbmc.getRegion('datelong'))
-                infoproperties['next_aired.day'] = utils.date_to_format(i.get('air_date'), "%A")
+                infoproperties['next_aired'] = format_date(i.get('air_date'), xbmc.getRegion('dateshort'))
+                infoproperties['next_aired.long'] = format_date(i.get('air_date'), xbmc.getRegion('datelong'))
+                infoproperties['next_aired.day'] = format_date(i.get('air_date'), "%A")
                 infoproperties['next_aired.episode'] = i.get('episode_number')
                 infoproperties['next_aired.name'] = i.get('name')
                 infoproperties['next_aired.tmdb_id'] = i.get('id')
@@ -310,7 +313,7 @@ class TMDb(RequestAPI):
             infoproperties['biography'] = item.get('biography')
             infoproperties['birthday'] = item.get('birthday')
             infoproperties['deathday'] = item.get('deathday')
-            infoproperties['age'] = utils.age_difference(item.get('birthday'), item.get('deathday'))
+            infoproperties['age'] = age_difference(item.get('birthday'), item.get('deathday'))
             if item.get('gender') == 1:
                 infoproperties['gender'] = ADDON.getLocalizedString(32071)
             elif item.get('gender') == 2:
@@ -345,14 +348,14 @@ class TMDb(RequestAPI):
         art['thumb'] = self.get_thumb(item)
         art['poster'] = self.get_poster(item)
         art['fanart'] = self.get_fanart(item)
-        return utils.del_empty_keys(art)
+        return del_empty_keys(art)
 
     def get_unique_ids(self, item, unique_ids=None):
         unique_ids = unique_ids or {}
         unique_ids['tmdb'] = item.get('id')
         unique_ids['imdb'] = item.get('imdb_id') or item.get('external_ids', {}).get('imdb_id')
         unique_ids['tvdb'] = item.get('external_ids', {}).get('tvdb_id')
-        return utils.del_empty_keys(unique_ids)
+        return del_empty_keys(unique_ids)
 
     def get_info(self, item, tmdb_type, base_item=None, detailed=True, params_definition=None, base_tmdb_type=None):
         base_item = base_item or {}
@@ -362,7 +365,7 @@ class TMDb(RequestAPI):
             base_item['infolabels'] = self.get_infolabels(item, tmdb_type, base_item.get('infolabels', {}), detailed=detailed)
             base_item['infoproperties'] = self.get_infoproperties(item, tmdb_type, base_item.get('infoproperties', {}), detailed=detailed)
             base_item['unique_ids'] = self.get_unique_ids(item, base_item.get('unique_ids', {}))
-            base_item['params'] = utils.get_params(item, tmdb_type, base_item.get('params', {}), definition=params_definition, base_tmdb_type=base_tmdb_type)
+            base_item['params'] = get_params(item, tmdb_type, base_item.get('params', {}), definition=params_definition, base_tmdb_type=base_tmdb_type)
             base_item['path'] = PLUGINPATH
             base_item['cast'] = self.get_cast(item) or [] if detailed else []
         return base_item
@@ -403,7 +406,7 @@ class TMDb(RequestAPI):
                 cache_name='detailed.item.{}.{}.{}.{}'.format(tmdb_type, tmdb_id, season, episode),
                 cache_days=cache.CACHE_LONG, cache_only=cache_only, cache_refresh=cache_refresh)
             if item:
-                item = utils.merge_two_items(base_item, item)
+                item = merge_two_items(base_item, item)
                 item['infolabels']['tvshowtitle'] = base_item.get('infolabels', {}).get('title')
                 item['unique_ids']['tvshow.tmdb'] = tmdb_id
                 item['params']['tmdb_id'] = tmdb_id
@@ -498,7 +501,7 @@ class TMDb(RequestAPI):
         datestamp = datetime.datetime.now() - datetime.timedelta(days=2)
         datestamp = datestamp.strftime("%m_%d_%Y")
         # Pickle results rather than cache due to being such a large list
-        return utils.use_pickle(
+        return use_pickle(
             self._get_downloaded_list,
             export_list=export_list, sorting=sorting, reverse=reverse, datestamp=datestamp,
             cache_name='TMDb.Downloaded.List.v2.{}.{}.{}'.format(export_list, sorting, reverse, datestamp))
@@ -514,7 +517,7 @@ class TMDb(RequestAPI):
         items = []
         param = TMDB_ALL_ITEMS_LISTS.get(tmdb_type, {}).get('params', {})
         limit = TMDB_ALL_ITEMS_LISTS.get(tmdb_type, {}).get('limit', 20)
-        pos_z = utils.try_parse_int(page, fallback=1) * limit
+        pos_z = try_int(page, fallback=1) * limit
         pos_a = pos_z - limit
         dbtype = plugin.convert_type(tmdb_type, plugin.TYPE_DB)
         for i in daily_list[pos_a:pos_z]:
@@ -539,7 +542,7 @@ class TMDb(RequestAPI):
         if TMDB_ALL_ITEMS_LISTS.get(tmdb_type, {}).get('sort'):
             items = sorted(items, key=lambda k: k.get('label', ''))
         if len(daily_list) > pos_z:
-            items.append({'next_page': utils.try_parse_int(page, fallback=1) + 1})
+            items.append({'next_page': try_int(page, fallback=1) + 1})
         return items
 
     def get_search_list(self, tmdb_type, **kwargs):
@@ -555,8 +558,8 @@ class TMDb(RequestAPI):
             detailed=False,
             params_definition=params,
             base_tmdb_type=base_tmdb_type) for i in results if i]
-        if utils.try_parse_int(response.get('page', 0)) < utils.try_parse_int(response.get('total_pages', 0)):
-            items.append({'next_page': utils.try_parse_int(response.get('page', 0)) + 1})
+        if try_int(response.get('page', 0)) < try_int(response.get('total_pages', 0)):
+            items.append({'next_page': try_int(response.get('page', 0)) + 1})
         return items
 
     def get_discover_list(self, tmdb_type, with_id=True, with_separator='AND', **kwargs):

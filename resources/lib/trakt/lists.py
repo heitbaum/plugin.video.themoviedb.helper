@@ -1,9 +1,9 @@
 import random
-import resources.lib.utils as utils
-import resources.lib.plugin as plugin
-import resources.lib.constants as constants
+import resources.lib.helpers.plugin as plugin
+import resources.lib.helpers.constants as constants
 from resources.lib.trakt.api import TraktAPI
-from resources.lib.plugin import ADDON
+from resources.lib.helpers.plugin import ADDON
+from resources.lib.helpers.parser import try_int
 
 
 class TraktLists():
@@ -121,8 +121,8 @@ class TraktLists():
 
     def list_trakt_calendar(self, info, startdate, days, page=None, **kwargs):
         items = TraktAPI().get_calendar_episodes_list(
-            utils.try_parse_int(startdate),
-            utils.try_parse_int(days),
+            try_int(startdate),
+            try_int(days),
             page=page)
         self.tmdb_cache_only = False
         self.kodi_db = self.get_kodi_database('tv')

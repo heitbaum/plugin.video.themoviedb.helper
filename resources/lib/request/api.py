@@ -1,7 +1,31 @@
 import requests
-import resources.lib.utils as utils
+import resources.lib.helpers.window as window
 import xml.etree.ElementTree as ET
-import resources.lib.cache as cache
+import resources.lib.helpers.cache as cache
+from resources.lib.helpers.plugin import kodi_log
+from resources.lib.helpers.parser import try_int
+from resources.lib.helpers.timedate import get_timestamp, set_timestamp
+from copy import copy
+
+
+def dictify(r, root=True):
+    if root:
+        return {r.tag: dictify(r, False)}
+    d = copy(r.attrib)
+    if r.text:
+        d["_text"] = r.text
+    for x in r.findall("./*"):
+        if x.tag not in d:
+            d[x.tag] = []
+        d[x.tag].append(dictify(x, False))
+    return d
+
+
+def translate_xml(self, request):
+    if request:
+        request = ET.fromstring(request.content)
+        request = dictify(request)
+    return request
 
 
 class RequestAPI(object):
@@ -10,20 +34,14 @@ class RequestAPI(object):
         self.req_api_key = req_api_key or ''
         self.req_api_name = req_api_name or ''
         self.req_connect_err_prop = 'ConnectionError.{}'.format(self.req_api_name)
-        self.req_connect_err = utils.get_property(self.req_connect_err_prop, is_type=float) or 0
+        self.req_connect_err = window.get_property(self.req_connect_err_prop, is_type=float) or 0
         self.headers = None
         self.timeout = timeout or 10
-
-    def translate_xml(self, request):
-        if request:
-            request = ET.fromstring(request.content)
-            request = utils.dictify(request)
-        return request
 
     def get_api_request_json(self, request=None, postdata=None, headers=None, is_xml=False):
         request = self.get_api_request(request=request, postdata=postdata, headers=headers)
         if is_xml:
-            return self.translate_xml(request)
+            return translate_xml(request)
         if request:
             return request.json()
         return {}
@@ -34,16 +52,16 @@ class RequestAPI(object):
                 return requests.get(request, headers=headers, timeout=self.timeout)
             return requests.post(request, data=postdata, headers=headers)
         except Exception as err:
-            self.req_connect_err = utils.set_timestamp()
-            utils.get_property(self.req_connect_err_prop, self.req_connect_err)
-            utils.kodi_log(u'ConnectionError: {}\nSuppressing retries for 1 minute'.format(err), 1)
+            self.req_connect_err = set_timestamp()
+            window.get_property(self.req_connect_err_prop, self.req_connect_err)
+            kodi_log(u'ConnectionError: {}\nSuppressing retries for 1 minute'.format(err), 1)
 
     def get_api_request(self, request=None, postdata=None, headers=None):
         """
         Make the request to the API by passing a url request string
         """
         # Connection error in last minute for this api so don't keep trying
-        if utils.get_timestamp(self.req_connect_err):
+        if get_timestamp(self.req_connect_err):
             return
 
         # Get response
@@ -52,15 +70,15 @@ class RequestAPI(object):
             return
 
         # Some error checking
-        if not response.status_code == requests.codes.ok and utils.try_parse_int(response.status_code) >= 400:  # Error Checking
+        if not response.status_code == requests.codes.ok and try_int(response.status_code) >= 400:  # Error Checking
             if response.status_code == 401:  # Invalid API Key
-                utils.kodi_log(u'HTTP Error Code: {0}\nRequest: {1}\nPostdata: {2}\nHeaders: {3}\nResponse: {4}'.format(response.status_code, request, postdata, headers, response), 1)
+                kodi_log(u'HTTP Error Code: {0}\nRequest: {1}\nPostdata: {2}\nHeaders: {3}\nResponse: {4}'.format(response.status_code, request, postdata, headers, response), 1)
             elif response.status_code == 500:
-                self.req_connect_err = utils.set_timestamp()
-                utils.get_property(self.req_connect_err_prop, self.req_connect_err)
-                utils.kodi_log(u'HTTP Error Code: {0}\nRequest: {1}\nSuppressing retries for 1 minute'.format(response.status_code, request), 1)
-            elif utils.try_parse_int(response.status_code) > 400:  # Don't write 400 error to log
-                utils.kodi_log(u'HTTP Error Code: {0}\nRequest: {1}'.format(response.status_code, request), 1)
+                self.req_connect_err = set_timestamp()
+                window.get_property(self.req_connect_err_prop, self.req_connect_err)
+                kodi_log(u'HTTP Error Code: {0}\nRequest: {1}\nSuppressing retries for 1 minute'.format(response.status_code, request), 1)
+            elif try_int(response.status_code) > 400:  # Don't write 400 error to log
+                kodi_log(u'HTTP Error Code: {0}\nRequest: {1}'.format(response.status_code, request), 1)
             return
 
         # Return our response

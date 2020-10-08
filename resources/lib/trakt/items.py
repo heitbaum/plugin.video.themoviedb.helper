@@ -1,7 +1,7 @@
 import random
-import resources.lib.utils as utils
-import resources.lib.plugin as plugin
-from resources.lib.plugin import PLUGINPATH
+import resources.lib.helpers.plugin as plugin
+from resources.lib.helpers.plugin import PLUGINPATH
+from resources.lib.helpers.setutils import del_empty_keys, get_params
 
 
 def _sort_itemlist(items, sort_by=None, sort_how=None, trakt_type=None):
@@ -59,13 +59,13 @@ def _get_item_infolabels(item, item_type=None, infolabels=None, show=None):
         infolabels['season'] = item.get('season')
     if item_type == 'season':
         infolabels['season'] = item.get('number')
-    return utils.del_empty_keys(infolabels)
+    return del_empty_keys(infolabels)
 
 
 def _get_item_infoproperties(item, item_type=None, infoproperties=None, show=None):
     infoproperties = infoproperties or {}
     infoproperties['tmdb_type'] = plugin.convert_trakt_type(item_type)
-    return utils.del_empty_keys(infoproperties)
+    return del_empty_keys(infoproperties)
 
 
 def _get_item_unique_ids(item, unique_ids=None, prefix=None, show=None):
@@ -76,7 +76,7 @@ def _get_item_unique_ids(item, unique_ids=None, prefix=None, show=None):
     if show:
         unique_ids = _get_item_unique_ids(show, unique_ids, prefix='tvshow.')
         unique_ids['tmdb'] = show.get('ids', {}).get('tmdb')
-    return utils.del_empty_keys(unique_ids)
+    return del_empty_keys(unique_ids)
 
 
 def _get_item_info(item, item_type=None, base_item=None, check_tmdb_id=True, params_definition=None):
@@ -91,7 +91,7 @@ def _get_item_info(item, item_type=None, base_item=None, check_tmdb_id=True, par
     base_item['infolabels'] = _get_item_infolabels(item_info, item_type=item_type, infolabels=base_item.get('infolabels', {}), show=show_item)
     base_item['infoproperties'] = _get_item_infoproperties(item_info, item_type=item_type, infoproperties=base_item.get('infoproperties', {}), show=show_item)
     base_item['unique_ids'] = _get_item_unique_ids(item_info, unique_ids=base_item.get('unique_ids', {}), show=show_item)
-    base_item['params'] = utils.get_params(
+    base_item['params'] = get_params(
         item_info, plugin.convert_trakt_type(item_type),
         tmdb_id=base_item.get('unique_ids', {}).get('tmdb'),
         params=base_item.get('params', {}),

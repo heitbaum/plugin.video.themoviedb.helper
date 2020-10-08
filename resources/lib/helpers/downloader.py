@@ -6,8 +6,8 @@ import xbmcgui
 import requests
 import zipfile
 import gzip
-import resources.lib.utils as utils
-from resources.lib.plugin import ADDON
+from resources.lib.helpers.plugin import ADDON, kodi_log
+from resources.lib.helpers.decorators import busy_dialog
 from io import BytesIO
 try:  # Python 3
     from urllib.parse import urlparse
@@ -47,24 +47,24 @@ class Downloader(object):
 
     def check_url(self, url, cred):
         if not self.is_url(url):
-            utils.kodi_log("URL is not of a valid schema: {0}".format(url), 1)
+            kodi_log("URL is not of a valid schema: {0}".format(url), 1)
             return False
         try:
             response = requests.head(url, allow_redirects=True, auth=cred)
             if response.status_code < 300:
-                utils.kodi_log("URL check passed for {0}: Status code [{1}]".format(url, response.status_code), 1)
+                kodi_log("URL check passed for {0}: Status code [{1}]".format(url, response.status_code), 1)
                 return True
             elif response.status_code < 400:
-                utils.kodi_log("URL check redirected from {0} to {1}: Status code [{2}]".format(url, response.headers['Location'], response.status_code), 1)
+                kodi_log("URL check redirected from {0} to {1}: Status code [{2}]".format(url, response.headers['Location'], response.status_code), 1)
                 return self.check_url(response.headers['Location'])
             elif response.status_code == 401:
-                utils.kodi_log("URL requires authentication for {0}: Status code [{1}]".format(url, response.status_code), 1)
+                kodi_log("URL requires authentication for {0}: Status code [{1}]".format(url, response.status_code), 1)
                 return 'auth'
             else:
-                utils.kodi_log("URL check failed for {0}: Status code [{1}]".format(url, response.status_code), 1)
+                kodi_log("URL check failed for {0}: Status code [{1}]".format(url, response.status_code), 1)
                 return False
         except Exception as e:
-            utils.kodi_log("URL check error for {0}: [{1}]".format(url, e), 1)
+            kodi_log("URL check error for {0}: [{1}]".format(url, e), 1)
             return False
 
     def open_url(self, url, stream=False, check=False, cred=None, count=0):
@@ -99,13 +99,13 @@ class Downloader(object):
                 elif os.path.isdir(file_path):
                     self.recursive_delete_dir(file_path)
             except Exception as e:
-                utils.kodi_log(u'Could not delete file {0}: {1}'.format(file_path, str(e)))
+                kodi_log(u'Could not delete file {0}: {1}'.format(file_path, str(e)))
 
     def get_gzip_text(self):
         if not self.download_url:
             return
 
-        with utils.busy_dialog():
+        with busy_dialog():
             response = self.open_url(self.download_url)
         if not response:
             xbmcgui.Dialog().ok(ADDON.getAddonInfo('name'), ADDON.getLocalizedString(32058))
@@ -119,7 +119,7 @@ class Downloader(object):
         if not self.download_url or not self.extract_to:
             return
 
-        with utils.busy_dialog():
+        with busy_dialog():
             response = self.open_url(self.download_url)
         if not response:
             xbmcgui.Dialog().ok(ADDON.getAddonInfo('name'), ADDON.getLocalizedString(32058))
@@ -129,10 +129,10 @@ class Downloader(object):
             os.makedirs(self.extract_to)
 
         if xbmcgui.Dialog().yesno(ADDON.getAddonInfo('name'), self.msg_cleardir):
-            with utils.busy_dialog():
+            with busy_dialog():
                 self.clear_dir(self.extract_to)
 
-        with utils.busy_dialog():
+        with busy_dialog():
             num_files = 0
             with zipfile.ZipFile(BytesIO(response.content)) as downloaded_zip:
                 for item in [x for x in downloaded_zip.namelist() if x.endswith('.json')]:
@@ -149,7 +149,7 @@ class Downloader(object):
                 _tempzip = os.path.join(self.extract_to, 'temp.zip')
                 os.remove(_tempzip)
             except Exception as e:
-                utils.kodi_log(u'Could not delete package {0}: {1}'.format(_tempzip, str(e)))
+                kodi_log(u'Could not delete package {0}: {1}'.format(_tempzip, str(e)))
 
         if num_files:
             xbmcgui.Dialog().ok(ADDON.getAddonInfo('name'), '{0}\n\n{1} {2}.'.format(ADDON.getLocalizedString(32059), num_files, ADDON.getLocalizedString(32060)))

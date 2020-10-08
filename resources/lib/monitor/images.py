@@ -2,7 +2,10 @@ import os
 import xbmc
 import xbmcvfs
 import colorsys
-import resources.lib.utils as utils
+import resources.lib.helpers.window as window
+from resources.lib.helpers.plugin import kodi_log, md5hash
+from resources.lib.helpers.parser import try_int, try_float
+from resources.lib.helpers.fileutils import make_path
 from threading import Thread
 from PIL import ImageFilter, Image  # TODO: Try Import in-case no PIL and don't use funcs
 try:
@@ -35,7 +38,7 @@ def _openimage(image, targetpath, filename):
                         return img
 
                     except Exception as error:
-                        utils.kodi_log('Image error: Could not open cached image --> %s' % error, 2)
+                        kodi_log('Image error: Could not open cached image --> %s' % error, 2)
 
             ''' Skin images will be tried to be accessed directly. For all other ones
                 the source will be copied to the addon_data folder to get access.
@@ -60,7 +63,7 @@ def _openimage(image, targetpath, filename):
                 return img
 
         except Exception as error:
-            utils.kodi_log('Image error: Could not get image for %s (try %d) -> %s' % (image, i, error), 2)
+            kodi_log('Image error: Could not get image for %s (try %d) -> %s' % (image, i, error), 2)
             xbmc.sleep(500)
             pass
 
@@ -76,34 +79,34 @@ class ImageFunctions(Thread):
         self.save_path = 'special://profile/addon_data/plugin.video.themoviedb.helper/{}/'
         if method == 'blur':
             self.func = self.blur
-            self.save_path = utils.makepath(self.save_path.format('blur'))
+            self.save_path = make_path(self.save_path.format('blur'))
             self.save_prop = 'ListItem.BlurImage'
         elif method == 'crop':
             self.func = self.crop
-            self.save_path = utils.makepath(self.save_path.format('crop'))
+            self.save_path = make_path(self.save_path.format('crop'))
             self.save_prop = 'ListItem.CropImage'
         elif method == 'desaturate':
             self.func = self.desaturate
-            self.save_path = utils.makepath(self.save_path.format('desaturate'))
+            self.save_path = make_path(self.save_path.format('desaturate'))
             self.save_prop = 'ListItem.DesaturateImage'
         elif method == 'colors':
             self.func = self.colors
-            self.save_path = utils.makepath(self.save_path.format('colors'))
+            self.save_path = make_path(self.save_path.format('colors'))
             self.save_prop = 'ListItem.Colors'
 
     def run(self):
         if not self.save_prop or not self.func:
             return
         if not self.image:
-            utils.get_property(self.save_prop, clear_property=True)
+            window.get_property(self.save_prop, clear_property=True)
             return
-        utils.get_property(self.save_prop, self.func(self.image))
+        window.get_property(self.save_prop, self.func(self.image))
 
     def clamp(self, x):
         return max(0, min(x, 255))
 
     def crop(self, source):
-        filename = 'cropped-{}.png'.format(utils.md5hash(source))
+        filename = 'cropped-{}.png'.format(md5hash(source))
         destination = self.save_path + filename
         try:
             if xbmcvfs.exists(destination):
@@ -120,7 +123,7 @@ class ImageFunctions(Thread):
             return ''
 
     def blur(self, source, radius=20):
-        filename = '{}{}.png'.format(utils.md5hash(source), radius)
+        filename = '{}{}.png'.format(md5hash(source), radius)
         destination = self.save_path + filename
         try:
             if xbmcvfs.exists(destination):
@@ -139,7 +142,7 @@ class ImageFunctions(Thread):
             return ''
 
     def desaturate(self, source):
-        filename = '{}.png'.format(utils.md5hash(source))
+        filename = '{}.png'.format(md5hash(source))
         destination = self.save_path + filename
         try:
             if xbmcvfs.exists(destination):
@@ -176,20 +179,20 @@ class ImageFunctions(Thread):
     def get_color_lumsat(self, r, g, b):
         hls_tuple = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
         hue = hls_tuple[0]
-        lum = utils.try_parse_float(xbmc.getInfoLabel('Skin.String(TMDbHelper.Colors.Luminance)')) or hls_tuple[1]
-        sat = utils.try_parse_float(xbmc.getInfoLabel('Skin.String(TMDbHelper.Colors.Saturation)')) or hls_tuple[2]
+        lum = try_float(xbmc.getInfoLabel('Skin.String(TMDbHelper.Colors.Luminance)')) or hls_tuple[1]
+        sat = try_float(xbmc.getInfoLabel('Skin.String(TMDbHelper.Colors.Saturation)')) or hls_tuple[2]
         return self.rgb_to_int(*colorsys.hls_to_rgb(hue, lum, sat))
 
     def rgb_to_int(self, r, g, b):
-        return [utils.try_parse_int(self.clamp(i * 255)) for i in [r, g, b]]
+        return [try_int(self.clamp(i * 255)) for i in [r, g, b]]
 
     def rgb_to_hex(self, r, g, b):
         return 'FF{:02x}{:02x}{:02x}'.format(r, g, b)
 
     def hex_to_rgb(self, colorhex):
-        r = utils.try_parse_int(colorhex[2:4], 16)
-        g = utils.try_parse_int(colorhex[4:6], 16)
-        b = utils.try_parse_int(colorhex[6:8], 16)
+        r = try_int(colorhex[2:4], 16)
+        g = try_int(colorhex[4:6], 16)
+        b = try_int(colorhex[6:8], 16)
         return [r, g, b]
 
     def set_prop_colorgradient(self, propname, start_hex, end_hex, checkprop):
@@ -210,20 +213,20 @@ class ImageFunctions(Thread):
         val_b = rgb_a[2]
 
         for i in range(steps):
-            if utils.get_property(checkprop) != start_hex:
+            if window.get_property(checkprop) != start_hex:
                 return
             hex_value = self.rgb_to_hex(val_r, val_g, val_b)
-            utils.get_property(propname, set_property=hex_value)
+            window.get_property(propname, set_property=hex_value)
             val_r = val_r + inc_r
             val_g = val_g + inc_g
             val_b = val_b + inc_b
             xbmc.Monitor().waitForAbort(0.05)
 
-        utils.get_property(propname, set_property=end_hex)
+        window.get_property(propname, set_property=end_hex)
         return end_hex
 
     def colors(self, source):
-        filename = '{}.png'.format(utils.md5hash(source))
+        filename = '{}.png'.format(md5hash(source))
         destination = self.save_path + filename
 
         try:
@@ -243,22 +246,22 @@ class ImageFunctions(Thread):
 
             maincolor_propname = self.save_prop + '.Main'
             maincolor_propchek = self.save_prop + '.MainCheck'
-            maincolor_propvalu = utils.get_property(maincolor_propname)
+            maincolor_propvalu = window.get_property(maincolor_propname)
             if not maincolor_propvalu:
-                utils.get_property(maincolor_propname, set_property=maincolor_hex)
+                window.get_property(maincolor_propname, set_property=maincolor_hex)
             else:
-                utils.get_property(maincolor_propchek, set_property=maincolor_propvalu)
+                window.get_property(maincolor_propchek, set_property=maincolor_propvalu)
                 thread_maincolor = Thread(target=self.set_prop_colorgradient, args=[
                     maincolor_propname, maincolor_propvalu, maincolor_hex, maincolor_propchek])
                 thread_maincolor.start()
 
             compcolor_propname = self.save_prop + '.Comp'
             compcolor_propchek = self.save_prop + '.CompCheck'
-            compcolor_propvalu = utils.get_property(compcolor_propname)
+            compcolor_propvalu = window.get_property(compcolor_propname)
             if not compcolor_propvalu:
-                utils.get_property(compcolor_propname, set_property=compcolor_hex)
+                window.get_property(compcolor_propname, set_property=compcolor_hex)
             else:
-                utils.get_property(compcolor_propchek, set_property=compcolor_propvalu)
+                window.get_property(compcolor_propchek, set_property=compcolor_propvalu)
                 thread_compcolor = Thread(target=self.set_prop_colorgradient, args=[
                     compcolor_propname, compcolor_propvalu, compcolor_hex, compcolor_propchek])
                 thread_compcolor.start()
@@ -267,5 +270,5 @@ class ImageFunctions(Thread):
             return maincolor_hex
 
         except Exception as exc:
-            utils.kodi_log(exc, 1)
+            kodi_log(exc, 1)
             return ''

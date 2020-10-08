@@ -1,7 +1,7 @@
-import resources.lib.rpc as rpc
-import resources.lib.utils as utils
+import resources.lib.helpers.rpc as rpc
 from resources.lib.trakt.api import TraktAPI
 from resources.lib.tmdb.api import TMDb
+from resources.lib.helpers.parser import try_int
 
 
 class ItemUtils(object):
@@ -100,26 +100,26 @@ class ItemUtils(object):
         if listitem.infolabels.get('mediatype') == 'movie':
             return self.trakt_api.get_movie_playcount(
                 id_type='tmdb',
-                unique_id=utils.try_parse_int(listitem.unique_ids.get('tmdb')))
+                unique_id=try_int(listitem.unique_ids.get('tmdb')))
         if listitem.infolabels.get('mediatype') == 'episode':
             return self.trakt_api.get_episode_playcount(
                 id_type='tmdb',
-                unique_id=utils.try_parse_int(listitem.unique_ids.get('tvshow.tmdb')),
+                unique_id=try_int(listitem.unique_ids.get('tvshow.tmdb')),
                 season=listitem.infolabels.get('season'),
                 episode=listitem.infolabels.get('episode'))
         if listitem.infolabels.get('mediatype') == 'tvshow':
             listitem.infolabels['episode'] = self.trakt_api.get_episodes_airedcount(
                 id_type='tmdb',
-                unique_id=utils.try_parse_int(listitem.unique_ids.get('tmdb')))
+                unique_id=try_int(listitem.unique_ids.get('tmdb')))
             return self.trakt_api.get_episodes_watchcount(
                 id_type='tmdb',
-                unique_id=utils.try_parse_int(listitem.unique_ids.get('tmdb')))
+                unique_id=try_int(listitem.unique_ids.get('tmdb')))
         if listitem.infolabels.get('mediatype') == 'season':
             listitem.infolabels['episode'] = self.trakt_api.get_episodes_airedcount(
                 id_type='tmdb',
-                unique_id=utils.try_parse_int(listitem.unique_ids.get('tmdb')),
+                unique_id=try_int(listitem.unique_ids.get('tmdb')),
                 season=listitem.infolabels.get('season'))
             return self.trakt_api.get_episodes_watchcount(
                 id_type='tmdb',
-                unique_id=utils.try_parse_int(listitem.unique_ids.get('tmdb')),
+                unique_id=try_int(listitem.unique_ids.get('tmdb')),
                 season=listitem.infolabels.get('season'))

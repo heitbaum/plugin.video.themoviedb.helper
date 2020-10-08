@@ -1,11 +1,29 @@
+import sys
 import datetime
 import simplecache
-import resources.lib.utils as utils
+from resources.lib.helpers.plugin import kodi_log
+from resources.lib.helpers.fileutils import get_pickle_name
+if sys.version_info[0] >= 3:
+    unicode = str  # In Py3 str is now unicode
 _cache = simplecache.SimpleCache()
 _cache_name = 'TMDbHelper_v4'
 CACHE_LONG = 14
 CACHE_SHORT = 1
 CACHE_EXTENDED = 90
+
+
+def format_name(cache_name, *args, **kwargs):
+    # Define a type whitelist to avoiding adding non-basic types like classes to cache name
+    permitted_types = [unicode, int, float, str, bool]
+    for arg in args:
+        if not arg or type(arg) not in permitted_types:
+            continue
+        cache_name = u'{0}/{1}'.format(cache_name, arg) if cache_name else u'{}'.format(arg)
+    for key, value in kwargs.items():
+        if not value or type(value) not in permitted_types:
+            continue
+        cache_name = u'{0}&{1}={2}'.format(cache_name, key, value) if cache_name else u'{0}={1}'.format(key, value)
+    return cache_name
 
 
 def use_simple_cache(cache_days=None):
@@ -21,12 +39,12 @@ def use_simple_cache(cache_days=None):
 
 
 def get_cache(cache_name):
-    cache_name = utils._get_pickle_name(cache_name or '')
+    cache_name = get_pickle_name(cache_name or '')
     return _cache.get('{}.{}'.format(_cache_name, cache_name))
 
 
 def set_cache(my_object, cache_name, cache_days=14, force=False, fallback=None):
-    cache_name = utils._get_pickle_name(cache_name or '')
+    cache_name = get_pickle_name(cache_name or '')
     if my_object and cache_name and cache_days:
         _cache.set('{}.{}'.format(_cache_name, cache_name), my_object, expiration=datetime.timedelta(days=cache_days))
     elif force:
@@ -50,14 +68,14 @@ def use_cache(func, *args, **kwargs):
     cache_combine_name = kwargs.pop('cache_combine_name', False) or False
     headers = kwargs.pop('headers', None) or None
     if not cache_name or cache_combine_name:
-        cache_name = utils.format_name(cache_name, *args, **kwargs)
+        cache_name = format_name(cache_name, *args, **kwargs)
     my_cache = get_cache(cache_name) if not cache_refresh else None
     if my_cache:
         return my_cache
     elif not cache_only:
         if headers:
             kwargs['headers'] = headers
-        # utils.kodi_log('GET REQUEST: {}'.format(cache_name), 1)
+        # kodi_log('GET REQUEST: {}'.format(cache_name), 1)
         my_object = func(*args, **kwargs)
         return set_cache(my_object, cache_name, cache_days, force=cache_force, fallback=cache_fallback)
 
@@ -92,9 +110,9 @@ def _replace_search_history(tmdb_type=None, query=None, replace=None, **kwargs):
         else:
             search_history.pop(replace)
     except Exception as exc:
-        utils.kodi_log(exc, 1)
+        kodi_log(exc, 1)
         return
-    utils.kodi_log(search_history, 1)
+    kodi_log(search_history, 1)
     return search_history
 
 

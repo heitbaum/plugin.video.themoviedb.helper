@@ -1,16 +1,18 @@
 import xbmc
 import xbmcgui
-import resources.lib.utils as utils
-import resources.lib.cache as cache
-import resources.lib.pages as pages
-from resources.lib.cache import use_simple_cache
+import resources.lib.helpers.cache as cache
+import resources.lib.items.pages as pages
+import resources.lib.helpers.window as window
+from resources.lib.helpers.cache import use_simple_cache
 from json import loads, dumps
 from resources.lib.request.api import RequestAPI
-from resources.lib.plugin import ADDON, PLUGINPATH
-from resources.lib.pages import PaginatedItems
+from resources.lib.helpers.plugin import ADDON, PLUGINPATH, kodi_log
+from resources.lib.items.pages import PaginatedItems
 from resources.lib.trakt.items import TraktItems
-from resources.lib.trakt.functions import is_authorized, use_activity_cache
+from resources.lib.trakt.decorators import is_authorized, use_activity_cache
 from resources.lib.trakt.progress import _TraktProgress
+from resources.lib.helpers.parser import try_int
+from resources.lib.helpers.timedate import date_in_range, get_region_date, convert_timestamp
 
 API_URL = 'https://api.trakt.tv/'
 CLIENT_ID = 'e6fde6173adf3c6af8fd1b0694b9b84d7c519cefc24482310e1de06c6abe5467'
@@ -40,7 +42,7 @@ class _TraktLists():
     def get_basic_list(self, path, trakt_type, page=1, limit=20, params=None, sort_by=None, sort_how=None, extended=None, authorize=False):
         # TODO: Add argument to check whether to refresh on first page (e.g. for user lists)
         # Also: Think about whether need to do it for standard response
-        cache_refresh = True if utils.try_parse_int(page, fallback=1) == 1 else False
+        cache_refresh = True if try_int(page, fallback=1) == 1 else False
         if sort_by is not None:  # Sorted list manually paginated because need to sort first
             response = self.get_sorted_list(path, sort_by, sort_how, extended, cache_refresh=cache_refresh)
             response = PaginatedItems(items=response['items'], page=page, limit=limit).get_dict()
@@ -54,7 +56,7 @@ class _TraktLists():
             return
         path = 'users/{}/lists/{}/items'.format(user_slug or 'me', list_slug)
         # Refresh cache on first page for user list because it might've changed
-        cache_refresh = True if utils.try_parse_int(page, fallback=1) == 1 else False
+        cache_refresh = True if try_int(page, fallback=1) == 1 else False
         sorted_items = self.get_sorted_list(
             path, sort_by, sort_how, extended,
             permitted_types=['movie', 'show', 'person'],
@@ -130,9 +132,9 @@ class _TraktLists():
         items = []
         for i in traktitems:
             # Do some timezone conversion so we check that we're in the date range for our timezone
-            if not utils.date_in_range(i.get('first_aired'), utc_convert=True, start_date=startdate, days=days):
+            if not date_in_range(i.get('first_aired'), utc_convert=True, start_date=startdate, days=days):
                 continue
-            air_date = utils.convert_timestamp(i.get('first_aired'), utc_convert=True)
+            air_date = convert_timestamp(i.get('first_aired'), utc_convert=True)
             item = {}
             item['label'] = i.get('episode', {}).get('title')
             item['infolabels'] = {
@@ -143,12 +145,12 @@ class _TraktLists():
                 'episode': i.get('episode', {}).get('number'),
                 'season': i.get('episode', {}).get('season'),
                 'tvshowtitle': i.get('show', {}).get('title'),
-                'duration': utils.try_parse_int(i.get('episode', {}).get('runtime', 0)) * 60,
+                'duration': try_int(i.get('episode', {}).get('runtime', 0)) * 60,
                 'plot': i.get('episode', {}).get('overview'),
                 'mpaa': i.get('show', {}).get('certification')}
             item['infoproperties'] = {
-                'air_date': utils.get_region_date(air_date, 'datelong'),
-                'air_time': utils.get_region_date(air_date, 'time'),
+                'air_date': get_region_date(air_date, 'datelong'),
+                'air_time': get_region_date(air_date, 'time'),
                 'air_day': air_date.strftime('%A'),
                 'air_day_short': air_date.strftime('%a'),
                 'air_date_short': air_date.strftime('%d %b')}
@@ -243,10 +245,10 @@ class _TraktSync():
     def is_sync(self, trakt_type, unique_id, season=None, episode=None, id_type=None, sync_type=None):
         """ Returns True if item in sync list else False """
         if id_type in ['tmdb', 'tvdb', 'trakt']:
-            unique_id = utils.try_parse_int(unique_id)
+            unique_id = try_int(unique_id)
         if season is not None:
-            season = utils.try_parse_int(season)
-            episode = utils.try_parse_int(episode)
+            season = try_int(season)
+            episode = try_int(episode)
         sync_list = self.get_sync(sync_type, trakt_type, id_type)
         if unique_id in sync_list:
             if season is None:
@@ -355,18 +357,18 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
             self.attempted_login = True
 
         # First time authorization in this session so let's confirm
-        if self.authorization and utils.get_property('TraktIsAuth') != 'True':
+        if self.authorization and window.get_property('TraktIsAuth') != 'True':
             # Check if we can get a response from user account
-            utils.kodi_log('Checking Trakt authorization', 1)
+            kodi_log('Checking Trakt authorization', 1)
             response = self.get_simple_api_request('https://api.trakt.tv/sync/last_activities', headers=self.headers)
             # 401 is unauthorized error code so let's try refreshing the token
             if response.status_code == 401:
-                utils.kodi_log('Trakt unauthorized!', 1)
+                kodi_log('Trakt unauthorized!', 1)
                 self.authorization = self.refresh_token()
             # Authorization confirmed so let's set a window property for future reference in this session
             if self.authorization:
-                utils.kodi_log('Trakt user account authorized', 1)
-                utils.get_property('TraktIsAuth', 'True')
+                kodi_log('Trakt user account authorized', 1)
+                window.get_property('TraktIsAuth', 'True')
 
         return self.authorization
 
@@ -375,7 +377,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
             token = loads(ADDON.getSettingString('trakt_token')) or {}
         except Exception as exc:
             token = {}
-            utils.kodi_log(exc, 1)
+            kodi_log(exc, 1)
         return token
 
     def logout(self):
@@ -414,9 +416,9 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
         self.poller()
 
     def refresh_token(self):
-        utils.kodi_log('Attempting to refresh Trakt token', 1)
+        kodi_log('Attempting to refresh Trakt token', 1)
         if not self.authorization or not self.authorization.get('refresh_token'):
-            utils.kodi_log('Trakt refresh token not found!', 1)
+            kodi_log('Trakt refresh token not found!', 1)
             return
         postdata = {
             'refresh_token': self.authorization.get('refresh_token'),
@@ -426,10 +428,10 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
             'grant_type': 'refresh_token'}
         self.authorization = self.get_api_request('https://api.trakt.tv/oauth/token', postdata=postdata)
         if not self.authorization or not self.authorization.get('access_token'):
-            utils.kodi_log('Failed to refresh Trakt token!', 1)
+            kodi_log('Failed to refresh Trakt token!', 1)
             return
         self.on_authenticated(auth_dialog=False)
-        utils.kodi_log('Trakt token refreshed', 1)
+        kodi_log('Trakt token refreshed', 1)
         return self.authorization
 
     def poller(self):
@@ -450,17 +452,17 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
 
     def on_aborted(self):
         """Triggered when device authentication was aborted"""
-        utils.kodi_log(u'Trakt authentication aborted!', 1)
+        kodi_log(u'Trakt authentication aborted!', 1)
         self.auth_dialog.close()
 
     def on_expired(self):
         """Triggered when the device authentication code has expired"""
-        utils.kodi_log(u'Trakt authentication expired!', 1)
+        kodi_log(u'Trakt authentication expired!', 1)
         self.auth_dialog.close()
 
     def on_authenticated(self, auth_dialog=True):
         """Triggered when device authentication has been completed"""
-        utils.kodi_log(u'Trakt authenticated successfully!', 1)
+        kodi_log(u'Trakt authenticated successfully!', 1)
         ADDON.setSettingString('trakt_token', dumps(self.authorization))
         self.headers['Authorization'] = 'Bearer {0}'.format(self.authorization.get('access_token'))
         if auth_dialog:
