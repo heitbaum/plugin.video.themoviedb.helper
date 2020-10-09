@@ -8,6 +8,7 @@ import xbmcgui
 import resources.lib.items.basedir as basedir
 from resources.lib.fanarttv.api import FanartTV
 from resources.lib.tmdb.api import TMDb
+from resources.lib.trakt.api import TraktAPI
 from resources.lib.helpers.plugin import ADDON
 from resources.lib.trakt.sync import SyncItem
 from resources.lib.helpers.decorators import busy_dialog
@@ -74,6 +75,10 @@ class Script(object):
         self.params = self.get_params()
         if not self.params:
             return
+        if self.params.get('authenticate_trakt'):
+            return TraktAPI(force=True)
+        if self.params.get('revoke_trakt'):
+            return TraktAPI().logout()
         if self.params.get('sync_item'):
             return self.sync_item(**self.params)
         if self.params.get('manage_artwork'):
@@ -83,5 +88,6 @@ class Script(object):
         if self.params.get('related_lists'):
             return self.related_lists(**self.params)
         if self.params.get('restart_service'):
+            # Only do the import here because this function only for debugging purposes
             from resources.lib.monitor.service import restart_service_monitor
             return restart_service_monitor()

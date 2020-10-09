@@ -1,17 +1,9 @@
 import xbmc
-import datetime
 import resources.lib.helpers.window as window
 from resources.lib.helpers.plugin import ADDON, kodi_log
 from resources.lib.monitor.cronjob import CronJobMonitor
 from resources.lib.monitor.listitem import ListItemMonitor
 from threading import Thread
-
-
-# Workaround for "Failed to import _strptime because the import lockis held by another thread" error
-try:
-    datetime.datetime.strptime("2016", "%Y")
-except Exception:
-    pass
 
 
 def restart_service_monitor():
@@ -56,9 +48,15 @@ class ServiceMonitor(object):
         xbmc.Monitor().waitForAbort(2)
 
     def _on_clear(self):
-        # If we've got properties clear them and return so we don't wait to go back into poll loop
-        # if self.properties or self.indxproperties:
-        #     return self.clear_properties()
+        """
+        IF we've got properties to clear lets clear them and then jump back in the loop
+        Otherwise we should sit for a second so we aren't constantly polling
+        """
+        try:
+            if self.listitem_monitor.properties or self.listitem_monitor.index_properties:
+                return self.listitem_monitor.clear_properties()
+        except Exception as exc:
+            kodi_log(u'_on_clear\n{}'.format(exc), 1)
         xbmc.Monitor().waitForAbort(1)
 
     def _on_exit(self):
@@ -128,5 +126,5 @@ class ServiceMonitor(object):
 
     def run(self):
         window.get_property('ServiceStarted', 'True')
-        # self.cron_job.start()
+        self.cron_job.start()
         self.poller()
