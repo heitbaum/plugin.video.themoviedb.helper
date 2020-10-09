@@ -64,10 +64,6 @@ class Script(object):
             xbmcgui.Dialog().ok('TMDbHelper', ADDON.getLocalizedString(32234).format(tmdb_type, tmdb_id))
             xbmc.executebuiltin('Container.Refresh')
 
-    # def restart_service(self):
-    #     from resources.lib.monitor.service import restart_service_monitor
-    #     restart_service_monitor()
-
     def sync_item(self, trakt_type, unique_id, season=None, episode=None, id_type=None, **kwargs):
         SyncItem(trakt_type, unique_id, season, episode, id_type).sync()
 
@@ -86,5 +82,6 @@ class Script(object):
             return self.refresh_details(**self.params)
         if self.params.get('related_lists'):
             return self.related_lists(**self.params)
-        # if self.params.get('restart_service'):
-        #     return self.restart_service()
+        if self.params.get('restart_service'):
+            from resources.lib.monitor.service import restart_service_monitor
+            return restart_service_monitor()

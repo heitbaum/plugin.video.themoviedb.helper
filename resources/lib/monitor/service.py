@@ -8,7 +8,10 @@ from threading import Thread
 
 
 # Workaround for "Failed to import _strptime because the import lockis held by another thread" error
-datetime.datetime.strptime("2016", "%Y")
+try:
+    datetime.datetime.strptime("2016", "%Y")
+except Exception:
+    pass
 
 
 def restart_service_monitor():

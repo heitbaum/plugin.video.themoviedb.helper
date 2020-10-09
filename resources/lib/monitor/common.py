@@ -26,7 +26,7 @@ SETPROP_RATINGS = {
     'rottentomatoes_reviewsrotten', 'rottentomatoes_consensus', 'rottentomatoes_usermeter',
     'rottentomatoes_userreviews', 'trakt_rating', 'trakt_votes', 'goldenglobe_wins',
     'goldenglobe_nominations', 'oscar_wins', 'oscar_nominations', 'award_wins', 'award_nominations',
-    'tmdb_rating', 'tmdb_votes'}
+    'tmdb_rating', 'tmdb_votes', 'top250'}
 
 
 class CommonMonitorFunctions(object):
@@ -194,7 +194,6 @@ class CommonMonitorFunctions(object):
         for k in self.index_properties:
             self.clear_property(k)
         self.index_properties = set()
-        self.pre_item = None
 
     def clear_property_list(self, properties):
         for k in properties:

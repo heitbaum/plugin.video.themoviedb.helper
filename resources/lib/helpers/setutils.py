@@ -1,3 +1,15 @@
+import random
+
+
+def random_from_list(items, remove_next_page=True):
+    if not items or not isinstance(items, list) or len(items) < 2:
+        return
+    item = random.choice(items)
+    if remove_next_page and isinstance(item, dict) and 'next_page' in item:
+        return random_from_list(items, remove_next_page=True)
+    return item
+
+
 def dict_to_list(items, key):
     return [i[key] for i in items if i.get(key)]
 

@@ -155,6 +155,13 @@ def _get_basedir_random():
             'path': PLUGINPATH,
             'art': {'thumb': '{}/resources/icons/tmdb/genre.png'.format(ADDONPATH)}},
         {
+            'label': '{} {{item_type}}{{space}}{}'.format(
+                xbmc.getLocalizedString(590), ADDON.getLocalizedString(32117)),
+            'types': ['movie', 'tv'],
+            'params': {'info': 'random_keyword'},
+            'path': PLUGINPATH,
+            'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
+        {
             'label': '{}{{space}}{{item_type}}'.format(ADDON.getLocalizedString(32199)),
             'types': ['movie', 'tv'],
             'params': {'info': 'trakt_becauseyouwatched'},

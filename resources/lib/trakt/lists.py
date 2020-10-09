@@ -7,7 +7,7 @@ from resources.lib.helpers.parser import try_int
 
 
 class TraktLists():
-    def list_trakt(self, info, tmdb_type, page=None, **kwargs):
+    def list_trakt(self, info, tmdb_type, page=None, randomise=False, **kwargs):
         info_model = constants.TRAKT_BASIC_LISTS.get(info)
         info_tmdb_type = info_model.get('tmdb_type') or tmdb_type
         trakt_type = plugin.convert_type(tmdb_type, plugin.TYPE_TRAKT)
@@ -19,7 +19,8 @@ class TraktLists():
             authorize=info_model.get('authorize', False),
             sort_by=info_model.get('sort_by', None),
             sort_how=info_model.get('sort_how', None),
-            extended=info_model.get('extended', None))
+            extended=info_model.get('extended', None),
+            randomise=randomise)
         self.tmdb_cache_only = False
         self.kodi_db = self.get_kodi_database(info_tmdb_type)
         self.library = plugin.convert_type(info_tmdb_type, plugin.TYPE_LIBRARY)

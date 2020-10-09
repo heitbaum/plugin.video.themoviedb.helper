@@ -17,7 +17,7 @@ from resources.lib.trakt.lists import TraktLists
 from resources.lib.tmdb.search import SearchLists
 from resources.lib.tmdb.discover import UserDiscoverLists
 from resources.lib.helpers.parser import try_decode, parse_paramstring
-from resources.lib.helpers.setutils import split_items
+from resources.lib.helpers.setutils import split_items, random_from_list, merge_two_dicts
 
 
 def filtered_item(item, key, value, exclude=False):
@@ -32,6 +32,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         self.handle = int(sys.argv[1])
         self.paramstring = try_decode(sys.argv[2][1:])
         self.params = parse_paramstring(sys.argv[2][1:])
+        self.parent_params = self.params
         self.allow_pagination = True
         self.update_listing = False
         self.plugin_category = ''
@@ -137,6 +138,21 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             return plugin.convert_type('season', plugin.TYPE_CONTAINER)
         return plugin.convert_type(tmdb_type, plugin.TYPE_CONTAINER)
 
+    def list_randomised_trakt(self, **kwargs):
+        kwargs['info'] = constants.RANDOMISED_TRAKT.get(kwargs.get('info'))
+        kwargs['randomise'] = True
+        self.parent_params = kwargs
+        return self.get_items(**kwargs)
+
+    def list_randomised(self, **kwargs):
+        params = merge_two_dicts(
+            kwargs, constants.RANDOMISED_LISTS.get(kwargs.get('info')))
+        item = random_from_list(self.get_items(**params))
+        if not item:
+            return
+        self.plugin_category = item.get('label')
+        return self.get_items(**item.get('params', {}))
+
     def get_items(self, **kwargs):
         info = kwargs.get('info')
         if info == 'pass':
@@ -165,6 +181,10 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             return self.list_trakt_calendar(**kwargs)
         if info in constants.TRAKT_LIST_OF_LISTS:
             return self.list_lists(**kwargs)
+        if info in constants.RANDOMISED_LISTS:
+            return self.list_randomised(**kwargs)
+        if info in constants.RANDOMISED_TRAKT:
+            return self.list_randomised_trakt(**kwargs)
 
         if not kwargs.get('tmdb_id'):
             kwargs['tmdb_id'] = TMDb().get_tmdb_id(**kwargs)
@@ -196,7 +216,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         self.add_items(
             items,
             allow_pagination=self.allow_pagination,
-            parent_params=self.params,
+            parent_params=self.parent_params,
             kodi_db=self.kodi_db,
             tmdb_cache_only=self.tmdb_cache_only)
         self.finish_container(
@@ -210,6 +230,18 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             xbmc.executebuiltin('Container.Refresh')
 
     def play_external(self):
+        """
+        Kodi does 5x retries to resolve url if isPlayable property is set
+        Since our external players might not return resolvable files we don't use this method
+        Instead we grab the url and pass it to xbmc.Player()
+        However, this property is forced for strm so we need to catch/prevent these retries
+        Otherwise Kodi will try to re-trigger the play function because we didn't resolve
+        We can get around the retry by setting a dummy resolved item if playing via strm
+        TMDbHelper sets an islocal flag in its strm files so we can determine what called play
+        Fixes in Matrix should solve this issue so we won't need this hack anymore
+        """
+        if self.params.get('islocal'):
+            xbmcplugin.setResolvedUrl(self.handle, True, ListItem().get_listitem())
         if not self.params.get('tmdb_id'):
             self.params['tmdb_id'] = TMDb().get_tmdb_id(**self.params)
         Players(**self.params).play()

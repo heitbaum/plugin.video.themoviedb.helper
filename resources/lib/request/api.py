@@ -21,7 +21,7 @@ def dictify(r, root=True):
     return d
 
 
-def translate_xml(self, request):
+def translate_xml(request):
     if request:
         request = ET.fromstring(request.content)
         request = dictify(request)

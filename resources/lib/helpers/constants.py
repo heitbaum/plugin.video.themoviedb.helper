@@ -46,21 +46,41 @@ TMDB_ALL_ITEMS_LISTS = {
         'type': 'tv_network',
         'sort': True,
         'limit': 2500,
-        'params': {'info': 'discover', 'tmdb_type': 'tv', 'with_networks': '{tmdb_id}'}
+        'params': {
+            'info': 'discover', 'tmdb_type': 'tv',
+            'with_networks': '{tmdb_id}', 'with_id': 'True'}
     },
     'keyword': {
         'type': 'keyword',
         'sort': True,
         'limit': 2500,
-        'params': {'info': 'discover', 'tmdb_type': 'movie', 'with_keywords': '{tmdb_id}'}
+        'params': {
+            'info': 'discover', 'tmdb_type': 'movie',
+            'with_keywords': '{tmdb_id}', 'with_id': 'True'}
     },
     'studio': {
         'type': 'production_company',
         'sort': True,
         'limit': 2500,
-        'params': {'info': 'discover', 'tmdb_type': 'movie', 'with_companies': '{tmdb_id}'}
+        'params': {
+            'info': 'discover', 'tmdb_type': 'movie',
+            'with_companies': '{tmdb_id}', 'with_id': 'True'}
     }
 }
+
+RANDOMISED_LISTS = {
+    'random_genres': {'info': 'genres'},
+    'random_keyword': {'info': 'all_items', 'tmdb_type': 'keyword'},
+    'random_trendinglists': {'info': 'trakt_trendinglists'},
+    'random_popularlists': {'info': 'trakt_popularlists'},
+    'random_likedlists': {'info': 'trakt_likedlists'},
+    'random_mylists': {'info': 'trakt_mylists'}}
+
+RANDOMISED_TRAKT = {
+    'random_trending': 'trakt_trending',
+    'random_popular': 'trakt_popular',
+    'random_mostplayed': 'trakt_mostplayed',
+    'random_anticipated': 'trakt_anticipated'}
 
 TMDB_BASIC_LISTS = {
     'popular': {

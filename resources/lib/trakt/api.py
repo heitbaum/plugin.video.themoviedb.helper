@@ -1,5 +1,6 @@
 import xbmc
 import xbmcgui
+import random
 import resources.lib.helpers.cache as cache
 import resources.lib.items.pages as pages
 import resources.lib.helpers.window as window
@@ -39,16 +40,24 @@ class _TraktLists():
         return TraktItems(response.json(), headers=response.headers, trakt_type=trakt_type).configure_items()
 
     @is_authorized
-    def get_basic_list(self, path, trakt_type, page=1, limit=20, params=None, sort_by=None, sort_how=None, extended=None, authorize=False):
+    def get_basic_list(self, path, trakt_type, page=1, limit=20, params=None, sort_by=None, sort_how=None, extended=None, authorize=False, randomise=False):
         # TODO: Add argument to check whether to refresh on first page (e.g. for user lists)
         # Also: Think about whether need to do it for standard response
         cache_refresh = True if try_int(page, fallback=1) == 1 else False
-        if sort_by is not None:  # Sorted list manually paginated because need to sort first
+        if randomise:
+            response = self.get_simple_list(
+                path, extended=extended, page=1, limit=50, trakt_type=trakt_type)
+        elif sort_by is not None:  # Sorted list manually paginated because need to sort first
             response = self.get_sorted_list(path, sort_by, sort_how, extended, cache_refresh=cache_refresh)
             response = PaginatedItems(items=response['items'], page=page, limit=limit).get_dict()
         else:  # Unsorted lists can be paginated by the API
-            response = self.get_simple_list(path, extended=extended, page=page, limit=limit, trakt_type=trakt_type)
+            response = self.get_simple_list(
+                path, extended=extended, page=page, limit=limit, trakt_type=trakt_type)
         if response:
+            if randomise and len(response['items']) > 20:
+                items = random.sample(response['items'], 20)
+                kodi_log(items, 1)
+                return items
             return response['items'] + pages.get_next_page(response['headers'])
 
     def get_custom_list(self, list_slug, user_slug=None, page=1, limit=20, params=None, authorize=False, sort_by=None, sort_how=None, extended=None):
@@ -60,8 +69,9 @@ class _TraktLists():
         sorted_items = self.get_sorted_list(
             path, sort_by, sort_how, extended,
             permitted_types=['movie', 'show', 'person'],
-            cache_refresh=cache_refresh)
-        paginated_items = PaginatedItems(items=sorted_items['items'], page=page, limit=limit)
+            cache_refresh=cache_refresh) or {}
+        paginated_items = PaginatedItems(
+            items=sorted_items.get('items', []), page=page, limit=limit)
         return {
             'items': paginated_items.items,
             'movies': sorted_items.get('movies', []),
@@ -155,7 +165,6 @@ class _TraktLists():
                 'air_day_short': air_date.strftime('%a'),
                 'air_date_short': air_date.strftime('%d %b')}
             item['unique_ids'] = {'tvshow.{}'.format(k): v for k, v in i.get('show', {}).get('ids', {}).items()}
-            item['path'] = PLUGINPATH,
             item['params'] = {
                 'info': 'details',
                 'tmdb_type': 'tv',
