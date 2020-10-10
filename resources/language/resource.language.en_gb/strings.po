@@ -1532,6 +1532,21 @@ msgctxt "#32303"
 msgid "Your List"
 msgstr ""
 
+#: /resources/lib/trakt/sync.py
+msgctxt "#32304"
+msgid "View comments"
+msgstr ""
+
+#: /resources/lib/trakt/sync.py
+msgctxt "#32305"
+msgid "Comments"
+msgstr ""
+
+#: /resources/lib/trakt/sync.py
+msgctxt "#32306"
+msgid "No comments found!"
+msgstr ""
+
 msgctxt "#30030"
 msgid "Hindi (India)"
 msgstr ""

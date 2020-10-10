@@ -47,6 +47,7 @@ class SyncItem():
     def _build_choices(self):
         choices = [{'name': ADDON.getLocalizedString(32298), 'method': 'userlist'}]
         choices += [j for j in (self._sync_item_check(**i) for i in _sync_item_methods()) if j]
+        choices += [{'name': ADDON.getLocalizedString(32304), 'method': 'comments'}]
         return choices
 
     def _sync_item_check(self, sync_type=None, method=None, name_add=None, name_remove=None, allow_episodes=False):
@@ -73,9 +74,33 @@ class SyncItem():
                 list_slug, self.trakt_type, self.unique_id, self.id_type,
                 season=self.season, episode=self.episode)
 
+    def _view_comments(self):
+        trakt_type = 'show' if self.trakt_type in ['season', 'episode'] else self.trakt_type
+        with busy_dialog():
+            slug = TraktAPI().get_id(self.unique_id, self.id_type, trakt_type, 'slug')
+            comments = TraktAPI().get_response_json('{}s'.format(trakt_type), slug, 'comments', limit=50) or []
+            itemlist = [i.get('comment', '').replace('\n', ' ') for i in comments]
+        return self._choose_comment(itemlist, comments)
+
+    def _choose_comment(self, itemlist, comments):
+        if not itemlist:
+            xbmcgui.Dialog().ok(ADDON.getLocalizedString(32305), ADDON.getLocalizedString(32306))
+            return -1
+        x = xbmcgui.Dialog().select(ADDON.getLocalizedString(32305), itemlist)
+        if x == -1:
+            return -1
+        info = comments[x].get('comment')
+        name = comments[x].get('user', {}).get('name')
+        rate = comments[x].get('user_stats', {}).get('rating')
+        info = u'{}\n\n{} {}/10'.format(info, xbmc.getLocalizedString(563), rate) if rate else u'{}'.format(info)
+        xbmcgui.Dialog().textviewer(name, info)
+        return self._choose_comment(itemlist, comments)
+
     def _sync_item(self, method):
         if method == 'userlist':
             return self._sync_userlist()
+        if method == 'comments':
+            return self._view_comments()
         with busy_dialog():
             return TraktAPI().sync_item(
                 method, self.trakt_type, self.unique_id, self.id_type,
@@ -90,6 +115,8 @@ class SyncItem():
         name = choices[x].get('name')
         method = choices[x].get('method')
         item_sync = self._sync_item(method)
+        if item_sync == -1:
+            return
         if item_sync and item_sync.status_code in [200, 201, 204]:
             xbmcgui.Dialog().ok(
                 ADDON.getLocalizedString(32295),

@@ -202,16 +202,32 @@ class WindowManager(_EventLoop):
         url = url.format(tmdb_type, tmdb_id)
         return self.add_path(url)
 
+    def reset_path(self):
+        self._call_exit()
+        self._on_exit()
+
+    def close_dialog(self):
+        self.reset_path()
+        if self.params.get('playmedia'):
+            xbmc.executebuiltin('PlayMedia(\"{}\")'.format(self.params['playmedia']))
+
+    def call_window(self):
+        if self.params.get('call_id'):
+            return xbmc.executebuiltin('ActivateWindow({})'.format(self.params['call_id']))
+        if self.params.get('call_path'):
+            return xbmc.executebuiltin('ActivateWindow(videos, {}, return)'.format(self.params['call_path']))
+        if self.params.get('call_update'):
+            return xbmc.executebuiltin('Container.Update({})'.format(self.params['call_update']))
+
     def router(self):
         if self.params.get('add_path'):
             return self.add_path(self.params['add_path'])
         if self.params.get('add_query') and self.params.get('type'):
             return self.add_query(self.params['add_query'], self.params['type'])
-        # if self.params.get('add_prop') and self.params.get('prop_id'):
-        #     return self.add_prop()
-        # if self.params.get('del_path'):
-        #     return self.del_path()
-        # if self.params.get('close_dialog'):
-        #     return self.close_dialog()
+
+        if self.params.get('close_dialog'):
+            self.close_dialog()
         if self.params.get('reset_path'):
-            return self.reset_properties()
+            self.reset_path()
+
+        self.call_window()

@@ -4,8 +4,9 @@ from resources.lib.helpers.parser import try_int, try_float
 
 
 def get_property(name, set_property=None, clear_property=False, window_id=None, prefix=None, is_type=None):
-    prefix = prefix or 'TMDbHelper'
-    name = '{}.{}'.format(prefix, name)
+    if prefix != -1:
+        prefix = prefix or 'TMDbHelper'
+        name = '{}.{}'.format(prefix, name)
     if window_id == 'current':
         window = xbmcgui.Window(xbmcgui.getCurrentWindowId())
     elif window_id:

@@ -63,6 +63,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
     def add_items(self, items=None, allow_pagination=True, parent_params=None, kodi_db=None, tmdb_cache_only=True):
         if not items:
             return
+        check_is_aired = parent_params.get('info') not in constants.NO_LABEL_FORMATTING
         listitem_utils = ItemUtils(
             kodi_db=self.kodi_db,
             ftv_api=FanartTV(cache_only=self.ftv_is_cache_only(is_widget=self.is_widget)))
@@ -70,11 +71,11 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             if not allow_pagination and 'next_page' in i:
                 continue
             if self.item_is_excluded(i):
-                continue  # TODO: Filter out unaired items and/or format labels
+                continue
             listitem = ListItem(parent_params=parent_params, **i)
             listitem.set_details(details=listitem_utils.get_tmdb_details(listitem, cache_only=tmdb_cache_only))  # Quick because only get cached
             listitem.set_episode_label()
-            if parent_params.get('info') not in constants.NO_LABEL_FORMATTING and listitem.is_unaired():
+            if check_is_aired and listitem.is_unaired():
                 continue
             listitem.set_details(details=listitem_utils.get_ftv_details(listitem), reverse=True)  # Slow when not cache only
             listitem.set_details(details=listitem_utils.get_kodi_details(listitem), reverse=True)  # Quick because local db

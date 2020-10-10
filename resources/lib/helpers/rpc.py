@@ -77,6 +77,20 @@ def get_person_stats(person):
     return infoproperties
 
 
+def set_watched(self, dbid=None, dbtype=None):
+    if not dbid or not dbtype:
+        return
+    db_key = "{}id".format(dbtype)
+    json_info = get_jsonrpc(
+        method="VideoLibrary.Get{}Details".format(dbtype.capitalize()),
+        params={db_key: dbid, "properties": ["playcount"]})
+    playcount = json_info.get('result', {}).get('{}details'.format(dbtype), {}).get('playcount', 0)
+    playcount = try_int(playcount) + 1
+    return get_jsonrpc(
+        method="VideoLibrary.Set{}Details".format(dbtype.capitalize()),
+        params={db_key: dbid, "playcount": playcount})
+
+
 def get_directory(url):
     method = "Files.GetDirectory"
     params = {

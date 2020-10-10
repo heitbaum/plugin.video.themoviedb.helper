@@ -73,7 +73,7 @@ class ItemUtils(object):
             episode=listitem.infolabels.get('episode') if listitem.infolabels.get('mediatype') == 'episode' else None,
             cache_only=cache_only)
 
-    def get_kodi_dbid(self, listitem):
+    def get_kodi_dbid(self, listitem, base_tvshow=False):
         if not self.kodi_db:
             return
         dbid = self.kodi_db.get_info(
@@ -92,7 +92,7 @@ class ItemUtils(object):
             return
         if listitem.infolabels.get('mediatype') == 'movie':
             return rpc.get_movie_details(dbid)
-        elif listitem.infolabels.get('mediatype') == 'tv':
+        if listitem.infolabels.get('mediatype') == 'tvshow':
             return rpc.get_tvshow_details(dbid)
         # TODO: Add episode details need to also merge TV
 
