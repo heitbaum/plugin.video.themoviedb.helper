@@ -211,6 +211,14 @@ class ListItem(object):
                 continue
             self.infoproperties['{}_id'.format(k)] = v
 
+    def set_params_to_infoproperties(self):
+        for k, v in self.params.items():
+            if not k or not v:
+                continue
+            self.infoproperties['item.{}'.format(k)] = v
+        if self.params.get('tmdb_type'):
+            self.infoproperties['item.type'] = self.params['tmdb_type']
+
     def get_url(self):
         return encode_url(self.path, **self.params)
 

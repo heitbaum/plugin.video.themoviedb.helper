@@ -22,6 +22,14 @@ def try_float(string):
         return 0
 
 
+def try_str(value):
+    '''helper to stringify value'''
+    try:
+        return u'{}'.format(value)
+    except Exception:
+        return ''
+
+
 def try_decode(string, encoding='utf-8', errors=None):
     """helper to decode strings for PY 2 """
     if sys.version_info.major == 3:

@@ -82,6 +82,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             listitem.set_standard_context_menu()  # Set the context menu items
             listitem.set_unique_ids_to_infoproperties()  # Add unique ids to properties so accessible in skins
             listitem.set_params_info_reroute()  # Reroute details to proper end point
+            listitem.set_params_to_infoproperties()  # Set path params to properties for use in skins
             xbmcplugin.addDirectoryItem(
                 handle=self.handle,
                 url=listitem.get_url(),

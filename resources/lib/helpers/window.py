@@ -41,9 +41,73 @@ def wait_for_property(name, value=None, set_property=False, poll=1, timeout=10):
     """
     if set_property:
         get_property(name, value) if value else get_property(name, clear_property=True)
-    is_property = _property_is_value(name, value)
-    while not xbmc.Monitor().abortRequested() and timeout > 0 and not is_property:
+    while (
+            not xbmc.Monitor().abortRequested() and timeout > 0
+            and not _property_is_value(name, value)):
         xbmc.Monitor().waitForAbort(poll)
-        is_property = _property_is_value(name, value)
         timeout -= poll
-    return is_property
+    if timeout > 0:
+        return True
+
+
+def is_visible(window_id):
+    return xbmc.getCondVisibility("Window.IsVisible({})".format(window_id))
+
+
+def close(window_id):
+    return xbmc.executebuiltin('Dialog.Close({})'.format(window_id))
+
+
+def activate(window_id):
+    return xbmc.executebuiltin('ActivateWindow({})'.format(window_id))
+
+
+def _is_base_active(window_id):
+    if window_id and not is_visible(window_id):
+        return False
+    return True
+
+
+def _is_updating(container_id):
+    is_updating = xbmc.getCondVisibility("Container({}).IsUpdating".format(container_id))
+    is_numitems = try_int(xbmc.getInfoLabel("Container({}).NumItems".format(container_id)))
+    if is_updating or not is_numitems:
+        return True
+
+
+def _is_inactive(window_id, invert=False):
+    if is_visible(window_id):
+        return True if invert else False
+    return True if not invert else False
+
+
+def wait_until_active(window_id, instance_id=None, poll=1, timeout=30, invert=False):
+    """
+    Wait for window ID to open (or to close if invert set to True). Returns window_id if successful.
+    Pass instance_id if there is also a base window that needs to be open underneath
+    """
+    while (
+            not xbmc.Monitor().abortRequested() and timeout > 0
+            and _is_inactive(window_id, invert)
+            and _is_base_active(instance_id)):
+        xbmc.Monitor().waitForAbort(poll)
+        timeout -= poll
+
+    if timeout > 0 and _is_base_active(instance_id):
+        return window_id
+
+
+def wait_until_updated(container_id=9999, instance_id=None, poll=1, timeout=60):
+    """
+    Wait for container to update. Returns container_id if successful
+    Pass instance_id if there is also a base window that needs to be open underneath
+    """
+    while (
+            not xbmc.Monitor().abortRequested() and timeout > 0
+            and _is_updating(container_id)
+            and _is_base_active(instance_id)):
+        xbmc.Monitor().waitForAbort(poll)
+        timeout -= poll
+
+    if timeout > 0 and _is_base_active(instance_id):
+        return container_id

@@ -85,13 +85,17 @@ class TMDb(RequestAPI):
                         return i.get('id')
         return request[0].get('id')
 
-    def get_tmdb_id_from_query(self, tmdb_type, query, header=None, use_details=False, get_listitem=False):
+    def get_tmdb_id_from_query(self, tmdb_type, query, header=None, use_details=False, get_listitem=False, auto_single=False):
         if not query or not tmdb_type:
             return
         response = TMDb().get_tmdb_id(tmdb_type, query=query, raw_data=True)
         items = [ListItem(**TMDb().get_info(i, tmdb_type, detailed=False)).get_listitem() for i in response]
-        x = xbmcgui.Dialog().select(header, items, useDetails=use_details)
-        if x != 1:
+        if not items:
+            return
+        x = 0
+        if not auto_single or len(items) != 1:
+            x = xbmcgui.Dialog().select(header, items, useDetails=use_details)
+        if x != -1:
             return items[x] if get_listitem else items[x].getUniqueID('tmdb')
 
     def get_translated_list(self, items, tmdb_type=None, separator=None):

@@ -13,6 +13,10 @@ from resources.lib.helpers.plugin import ADDON
 from resources.lib.trakt.sync import SyncItem
 from resources.lib.helpers.decorators import busy_dialog
 from resources.lib.helpers.parser import encode_url
+from resources.lib.window.manager import WindowManager
+
+
+WM_PARAMS = ['add_path', 'add_query', 'add_prop', 'del_path', 'close_dialog', 'reset_path']
 
 
 class Script(object):
@@ -87,6 +91,8 @@ class Script(object):
             return self.refresh_details(**self.params)
         if self.params.get('related_lists'):
             return self.related_lists(**self.params)
+        if any(x in WM_PARAMS for x in self.params):
+            return WindowManager(**self.params).router()
         if self.params.get('restart_service'):
             # Only do the import here because this function only for debugging purposes
             from resources.lib.monitor.service import restart_service_monitor
