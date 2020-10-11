@@ -421,13 +421,12 @@ class TMDb(RequestAPI):
 
     def get_season_list(self, tmdb_id):
         request = self.get_request_sc('tv/{}'.format(tmdb_id))
-        base_item = self.get_details('tv', tmdb_id)
+        base_item = mapping.get_info(request, 'tv')
         tvshow_title = base_item.get('infolabels', {}).get('title')
         items = []
         items_end = []
         for i in request.get('seasons', []) if request else []:
-            item = self.get_info(i, 'tv', base_item.copy())
-            item['infolabels']['mediatype'] = 'season'
+            item = mapping.get_info(i, 'season', base_item.copy())
             item['infolabels']['tvshowtitle'] = tvshow_title
             item['unique_ids']['tvshow.tmdb'] = tmdb_id
             item['unique_ids']['tmdb'] = tmdb_id

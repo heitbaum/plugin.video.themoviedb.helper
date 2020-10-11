@@ -11,6 +11,7 @@ def random_from_list(items, remove_next_page=True):
 
 
 def dict_to_list(items, key):
+    items = items or []
     return [i[key] for i in items if i.get(key)]
 
 
@@ -69,7 +70,7 @@ def get_params(item, tmdb_type, tmdb_id=None, params=None, definition=None, base
     definition = definition or {'info': 'details', 'tmdb_type': '{tmdb_type}', 'tmdb_id': '{tmdb_id}'}
     for k, v in definition.items():
         params[k] = v.format(tmdb_type=tmdb_type, tmdb_id=tmdb_id, base_tmdb_type=base_tmdb_type, **item)
-    return del_empty_keys(params)
+    return del_empty_keys(params)  # TODO: Is this necessary??!
 
 
 def split_items(items, separator='/'):
