@@ -31,6 +31,11 @@ def md5hash(value):
 
 def kodi_log(value, level=0):
     try:
+        if isinstance(value, list):
+            v = ''
+            for i in value:
+                v = u'{} {}'.format(v, i) if v else u'{}'.format(i)
+            value = v
         if isinstance(value, bytes):
             value = value.decode('utf-8')
         logvalue = u'{0}{1}'.format(_addonlogname, value)

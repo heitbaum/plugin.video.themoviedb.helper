@@ -2,7 +2,7 @@ import xbmc
 import json
 from resources.lib.helpers.plugin import kodi_log
 from resources.lib.helpers.parser import try_int, try_float, try_decode
-from resources.lib.helpers.setutils import find_dict_in_list
+from resources.lib.helpers.setutils import find_dict_in_list, del_empty_keys
 
 
 def get_jsonrpc(method=None, params=None):
@@ -77,7 +77,7 @@ def get_person_stats(person):
     return infoproperties
 
 
-def set_watched(self, dbid=None, dbtype=None):
+def set_watched(self, dbid=None, dbtype=None, plays=1):
     if not dbid or not dbtype:
         return
     db_key = "{}id".format(dbtype)
@@ -85,7 +85,7 @@ def set_watched(self, dbid=None, dbtype=None):
         method="VideoLibrary.Get{}Details".format(dbtype.capitalize()),
         params={db_key: dbid, "properties": ["playcount"]})
     playcount = json_info.get('result', {}).get('{}details'.format(dbtype), {}).get('playcount', 0)
-    playcount = try_int(playcount) + 1
+    playcount = try_int(playcount) + plays
     return get_jsonrpc(
         method="VideoLibrary.Set{}Details".format(dbtype.capitalize()),
         params={db_key: dbid, "playcount": playcount})
@@ -151,7 +151,7 @@ def _get_infolabels(item, key, dbid):
     infolabels['trailer'] = item.get('trailer')
     infolabels['dateadded'] = item.get('dateadded')
     infolabels['overlay'] = 5 if try_int(item.get('playcount')) > 0 and key in ['movie', 'episode'] else 4
-    return infolabels
+    return del_empty_keys(infolabels)
 
 
 def _get_infoproperties(item):
@@ -162,7 +162,7 @@ def _get_infoproperties(item):
     infoproperties['imdb_votes'] = '{:0,.0f}'.format(try_float(item.get('ratings', {}).get('imdb', {}).get('votes')))
     infoproperties['tmdb_rating'] = '{0:.1f}'.format(try_float(item.get('ratings', {}).get('themoviedb', {}).get('rating')))
     infoproperties['tmdb_votes'] = '{:0,.0f}'.format(try_float(item.get('ratings', {}).get('themoviedb', {}).get('votes')))
-    return infoproperties
+    return del_empty_keys(infoproperties)
 
 
 def _get_niceitem(item, key, dbid):
@@ -173,7 +173,7 @@ def _get_niceitem(item, key, dbid):
         'stream_details': item.get('streamdetails') or {},
         'infolabels': _get_infolabels(item, key, dbid),
         'infoproperties': _get_infoproperties(item)}
-    return nice_item
+    return del_empty_keys(nice_item)
 
 
 def _get_item_details(dbid=None, method=None, key=None, properties=None):
@@ -186,8 +186,10 @@ def _get_item_details(dbid=None, method=None, key=None, properties=None):
     details = get_jsonrpc(method, params)
     if not details or not isinstance(details, dict):
         return {}
+    kodi_log(details, 1) if key == 'season' else None
     details = details.get('result', {}).get('{0}details'.format(key))
-    return _get_niceitem(details, key, dbid)
+    if details:
+        return _get_niceitem(details, key, dbid)
 
 
 def get_movie_details(dbid=None):
@@ -205,6 +207,13 @@ def get_tvshow_details(dbid=None):
         "premiered", "votes", "lastplayed", "fanart", "thumbnail", "file", "originaltitle", "sorttitle", "episodeguide",
         "season", "watchedepisodes", "dateadded", "tag", "art", "userrating", "ratings", "runtime", "uniqueid"]
     return _get_item_details(dbid=dbid, method="VideoLibrary.GetTVShowDetails", key="tvshow", properties=properties)
+
+
+def get_season_details(dbid=None):
+    properties = [
+        "season", "showtitle", "playcount", "episode", "fanart", "thumbnail", "tvshowid", "watchedepisodes",
+        "art", "userrating", "title"]
+    return _get_item_details(dbid=dbid, method="VideoLibrary.GetSeasonDetails", key="season", properties=properties)
 
 
 def get_episode_details(dbid=None):
@@ -240,11 +249,12 @@ class KodiLibrary(object):
         if dbtype == "tvshow":
             method = "VideoLibrary.GetTVShows"
             params = {"properties": ["title", "imdbnumber", "originaltitle", "uniqueid", "year"]}
+        if dbtype == "season":
+            method = "VideoLibrary.GetSeasons"
+            params = {"tvshowid": tvshowid, "properties": ["title", "showtitle", "season"]}
         if dbtype == "episode":
             method = "VideoLibrary.GetEpisodes"
-            params = {
-                "tvshowid": tvshowid,
-                "properties": ["title", "showtitle", "season", "episode", "file"]}
+            params = {"tvshowid": tvshowid, "properties": ["title", "showtitle", "season", "episode", "file"]}
         dbid_name = '{0}id'.format(dbtype)
         key_to_get = '{0}s'.format(dbtype)
         response = get_jsonrpc(method, params)
@@ -262,7 +272,9 @@ class KodiLibrary(object):
             'file': item.get('file')}
             for item in response.get('result', {}).get(key_to_get, [])]
 
-    def get_info(self, info, dbid=None, imdb_id=None, originaltitle=None, title=None, year=None, season=None, episode=None, fuzzy_match=False, tmdb_id=None, tvdb_id=None):
+    def get_info(
+            self, info, dbid=None, imdb_id=None, originaltitle=None, title=None, year=None, season=None,
+            episode=None, fuzzy_match=False, tmdb_id=None, tvdb_id=None):
         if not self.database or not info:
             return
         yearcheck = False

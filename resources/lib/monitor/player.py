@@ -1,31 +1,96 @@
 import xbmc
 import resources.lib.helpers.rpc as rpc
-from resources.lib.monitor.common import CommonMonitorFunctions
-from resources.lib.helpers.parser import try_int, try_decode
+import resources.lib.helpers.window as window
+import resources.lib.monitor.common as common
+from resources.lib.helpers.parser import try_decode
+from resources.lib.helpers.plugin import ADDON
+from json import loads
 
 
-class PlayerMonitor(xbmc.Player, CommonMonitorFunctions):
+class PlayerMonitor(xbmc.Player, common.CommonMonitorFunctions):
     def __init__(self):
         xbmc.Player.__init__(self)
-        CommonMonitorFunctions.__init__(self)
+        common.CommonMonitorFunctions.__init__(self)
         self.exit = False
+        self.playerstring = None
+        self.property_prefix = 'Player'
+        self.reset_properties()
 
-    # def onAVStarted(self):
-    #     self.reset_properties()
-    #     self.get_playingitem()
+    def onAVStarted(self):
+        self.reset_properties()
+        self.get_playingitem()
 
-    # def onPlayBackEnded(self):
-    #     self.set_watched()
-    #     self.reset_properties()
+    def onPlayBackEnded(self):
+        self.set_watched()
+        self.reset_properties()
 
-    # def onPlayBackStopped(self):
-    #     self.set_watched()
-    #     self.reset_properties()
+    def onPlayBackStopped(self):
+        self.set_watched()
+        self.reset_properties()
 
-    # def get_dbid(self):
-    #     self.kodi_db = rpc.KodiLibrary(dbtype='movie').get_info(info='dbid', **self.playerstring)
-    #     if not dbid:
-    #         return
+    def reset_properties(self):
+        self.clear_properties()
+        self.properties = set()
+        self.index_properties = set()
+        self.total_time = 0
+        self.current_time = 0
+        self.dbtype = None
+        self.imdb_id = None
+        self.query = None
+        self.year = None
+        self.season = None
+        self.episode = None
+        self.dbid = None
+        self.tmdb_id = None
+        self.details = {}
+        self.tmdb_type = None
+
+    def get_playingitem(self):
+        if not self.isPlayingVideo():
+            return  # Not a video so don't get info
+        if self.getVideoInfoTag().getMediaType() not in ['movie', 'episode']:
+            return  # Not a movie or episode so don't get info TODO Maybe get PVR details also?
+        self.playerstring = window.get_property('PlayerInfoString')
+        self.playerstring = loads(self.playerstring) if self.playerstring else None
+
+        self.total_time = self.getTotalTime()
+        self.dbtype = self.getVideoInfoTag().getMediaType()
+        self.dbid = self.getVideoInfoTag().getDbId()
+        self.imdb_id = self.getVideoInfoTag().getIMDBNumber()
+        self.query = self.getVideoInfoTag().getTVShowTitle() if self.dbtype == 'episode' else self.getVideoInfoTag().getTitle()
+        self.year = self.getVideoInfoTag().getYear() if self.dbtype == 'movie' else None
+        self.epyear = self.getVideoInfoTag().getYear() if self.dbtype == 'episodes' else None
+        self.season = self.getVideoInfoTag().getSeason() if self.dbtype == 'episodes' else None
+        self.episode = self.getVideoInfoTag().getEpisode() if self.dbtype == 'episodes' else None
+        self.query = try_decode(self.query)
+
+        self.tmdb_type = 'movie' if self.dbtype == 'movie' else 'tv'
+        self.tmdb_id = self.get_tmdb_id(self.tmdb_type, self.imdb_id, self.query, self.year, self.epyear)
+        self.details = self.tmdb.get_detailed_item(self.tmdb_type, self.tmdb_id, season=self.season, episode=self.episode)
+
+        # Clear everything if we didn't get details because nothing to compare
+        if not self.details:
+            return self.reset_properties()
+
+        # Get ratings (no need for threading since we're only getting one item in player ever)
+        if xbmc.getCondVisibility("!Skin.HasSetting(TMDbHelper.DisableRatings)"):
+            self.details = self.get_omdb_ratings(self.details)
+            if self.tmdb_type == 'movie':
+                self.details = self.get_imdb_top250_rank(self.details)
+            if self.tmdb_type in ['movie', 'tv']:
+                self.details = self.get_trakt_ratings(
+                    self.details, 'movie' if self.tmdb_type == 'movie' else 'show',
+                    season=self.season, episode=self.episode)
+            self.set_iter_properties(self.details.get('infoproperties', {}), common.SETPROP_RATINGS)
+
+        # Get artwork (no need for threading since we're only getting one item in player ever)
+        # No need for merging Kodi DB artwork as we should have access to that via normal player properties
+        if xbmc.getCondVisibility("!Skin.HasSetting(TMDbHelper.DisableArtwork)"):
+            if ADDON.getSettingBool('service_fanarttv_lookup'):
+                self.details = self.get_fanarttv_artwork(self.details, self.tmdb_type)
+            self.set_iter_properties(self.details, common.SETMAIN_ARTWORK)
+
+        self.set_properties(self.details)
 
     def set_watched(self):
         if not self.dbid or not self.playerstring or not self.playerstring.get('tmdb_id'):

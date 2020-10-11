@@ -31,6 +31,7 @@ class ListItemMonitor(CommonMonitorFunctions):
         self.pre_item = 1
         self.cur_folder = None
         self.pre_folder = None
+        self.property_prefix = 'ListItem'
 
     def get_container(self):
         self.container = get_container()
@@ -129,11 +130,8 @@ class ListItemMonitor(CommonMonitorFunctions):
                 if tmdb_type not in ['movie', 'tv']:
                     return
             pre_item = self.pre_item
-            # TODO: Get Fanart TV and local library artwork lookups
             if ADDON.getSettingBool('service_fanarttv_lookup'):
                 details = self.get_fanarttv_artwork(details, tmdb_type)
-            # if ADDON.getSettingBool('local_db'):
-            #     details = self.get_kodi_artwork(details, self.dbtype, self.dbid)
             if not self.is_same_item(update=False, pre_item=pre_item):
                 return
             self.set_iter_properties(details.get('art', {}), monitor_common.SETMAIN_ARTWORK)
@@ -154,7 +152,6 @@ class ListItemMonitor(CommonMonitorFunctions):
                 return
             pre_item = self.pre_item
             details = self.get_omdb_ratings(details)
-            # TODO: Get IMDb Top 250 and Trakt ratings
             if tmdb_type == 'movie':
                 details = self.get_imdb_top250_rank(details)
             if tmdb_type in ['movie', 'tv']:

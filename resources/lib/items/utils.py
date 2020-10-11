@@ -2,6 +2,7 @@ import resources.lib.helpers.rpc as rpc
 from resources.lib.trakt.api import TraktAPI
 from resources.lib.tmdb.api import TMDb
 from resources.lib.helpers.parser import try_int
+from resources.lib.helpers.plugin import kodi_log
 
 
 class ItemUtils(object):
@@ -10,6 +11,7 @@ class ItemUtils(object):
         self.trakt_watched_tvshows = {}
         self.ftv_api = ftv_api
         self.kodi_db = kodi_db
+        self.kodi_db_tv = {}
         self.trakt_api = TraktAPI()
         self.tmdb_api = TMDb()
 
@@ -73,28 +75,58 @@ class ItemUtils(object):
             episode=listitem.infolabels.get('episode') if listitem.infolabels.get('mediatype') == 'episode' else None,
             cache_only=cache_only)
 
-    def get_kodi_dbid(self, listitem, base_tvshow=False):
+    def get_kodi_parent_dbid(self, listitem):
         if not self.kodi_db:
             return
-        dbid = self.kodi_db.get_info(
-            info='dbid',
-            imdb_id=listitem.unique_ids.get('imdb'),
-            tmdb_id=listitem.unique_ids.get('tmdb'),
-            tvdb_id=listitem.unique_ids.get('tvdb'),
-            originaltitle=listitem.infolabels.get('originaltitle'),
-            title=listitem.infolabels.get('title'),
-            year=listitem.infolabels.get('year'))
-        return dbid
+        if listitem.infolabels.get('mediatype') in ['movie', 'tvshow']:
+            return self.kodi_db.get_info(
+                info='dbid',
+                imdb_id=listitem.unique_ids.get('imdb'),
+                tmdb_id=listitem.unique_ids.get('tmdb'),
+                tvdb_id=listitem.unique_ids.get('tvdb'),
+                originaltitle=listitem.infolabels.get('originaltitle'),
+                title=listitem.infolabels.get('title'),
+                year=listitem.infolabels.get('year'))
+        if listitem.infolabels.get('mediatype') in ['season', 'episode']:
+            return self.kodi_db.get_info(
+                info='dbid',
+                imdb_id=listitem.unique_ids.get('tvshow.imdb'),
+                tmdb_id=listitem.unique_ids.get('tvshow.tmdb'),
+                tvdb_id=listitem.unique_ids.get('tvshow.tvdb'),
+                title=listitem.infolabels.get('tvshowtitle'))
 
     def get_kodi_details(self, listitem):
-        dbid = self.get_kodi_dbid(listitem)
+        if not self.kodi_db:
+            return
+        dbid = self.get_kodi_parent_dbid(listitem)
         if not dbid:
             return
         if listitem.infolabels.get('mediatype') == 'movie':
             return rpc.get_movie_details(dbid)
         if listitem.infolabels.get('mediatype') == 'tvshow':
             return rpc.get_tvshow_details(dbid)
-        # TODO: Add episode details need to also merge TV
+        if listitem.infolabels.get('mediatype') == 'season':
+            return self.get_kodi_tvchild_details(
+                tv_dbid=dbid,
+                season=listitem.infolabels.get('season'),
+                is_season=True)
+        if listitem.infolabels.get('mediatype') == 'episode':
+            return self.get_kodi_tvchild_details(
+                tv_dbid=dbid,
+                season=listitem.infolabels.get('season'),
+                episode=listitem.infolabels.get('episode'))
+
+    def get_kodi_tvchild_details(self, tv_dbid, season=None, episode=None, is_season=False):
+        if not tv_dbid or not season or (not episode and not is_season):
+            return
+        library = 'season' if is_season else 'episode'
+        self.kodi_db_tv[tv_dbid] = self.kodi_db_tv.get(tv_dbid) or rpc.KodiLibrary(library, tv_dbid)
+        if not self.kodi_db_tv[tv_dbid].database:
+            return
+        dbid = self.kodi_db_tv[tv_dbid].get_info('dbid', season=season, episode=episode)
+        if not dbid:
+            return
+        return rpc.get_season_details(dbid) if is_season else rpc.get_episode_details(dbid)
 
     def get_playcount_from_trakt(self, listitem):
         if listitem.infolabels.get('mediatype') == 'movie':

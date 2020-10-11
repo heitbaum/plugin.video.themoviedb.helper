@@ -3,6 +3,7 @@ import resources.lib.helpers.window as window
 from resources.lib.helpers.plugin import ADDON, kodi_log
 from resources.lib.monitor.cronjob import CronJobMonitor
 from resources.lib.monitor.listitem import ListItemMonitor
+from resources.lib.monitor.player import PlayerMonitor
 from threading import Thread
 
 
@@ -37,8 +38,8 @@ class ServiceMonitor(object):
         xbmc.Monitor().waitForAbort(1)
 
     def _on_fullscreen(self):
-        # if self.player_monitor.isPlayingVideo():
-        #     self.player_monitor.currenttime = self.player_monitor.getTime()
+        if self.player_monitor.isPlayingVideo():
+            self.player_monitor.currenttime = self.player_monitor.getTime()
         xbmc.Monitor().waitForAbort(1)
 
     def _on_idle(self):
@@ -60,10 +61,10 @@ class ServiceMonitor(object):
         xbmc.Monitor().waitForAbort(1)
 
     def _on_exit(self):
-        # if self.player_monitor:
-        #     self.player_monitor.exit = True
-        #     del self.player_monitor
-        # self.clear_properties()
+        if self.player_monitor:
+            self.player_monitor.exit = True
+            del self.player_monitor
+        self.clear_properties()
         window.get_property('ServiceStarted', clear_property=True)
         window.get_property('ServiceStop', clear_property=True)
 
@@ -72,11 +73,6 @@ class ServiceMonitor(object):
             if window.get_property('ServiceStop'):
                 self.cron_job.exit = True
                 self.exit = True
-
-            # Startup our playmonitor if we haven't already
-            # elif not self.player_monitor:
-            #     self.player_monitor = PlayerMonitor()
-            #     xbmc.Monitor().waitForAbort(1)
 
             # If we're in fullscreen video then we should update the playermonitor time
             elif xbmc.getCondVisibility("Window.IsVisible(fullscreenvideo)"):
@@ -127,4 +123,6 @@ class ServiceMonitor(object):
     def run(self):
         window.get_property('ServiceStarted', 'True')
         self.cron_job.start()
+        if not self.player_monitor:
+            self.player_monitor = PlayerMonitor()
         self.poller()

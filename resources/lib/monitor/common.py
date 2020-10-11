@@ -38,16 +38,17 @@ class CommonMonitorFunctions(object):
         self.fanarttv = FanartTV()
         self.omdb_api = OMDb() if ADDON.getSettingString('omdb_apikey') else None
         self.imdb_top250 = {}
+        self.property_prefix = 'ListItem'
 
     def clear_property(self, key):
-        key = 'ListItem.{}'.format(key)
+        key = '{}.{}'.format(key, self.property_prefix)
         try:
             window.get_property(key, clear_property=True)
         except Exception as exc:
-            kodi_log(u'Func: clear_property\n{0}{1}'.format(key, exc), 1)
+            kodi_log(['Func: clear_property\n', key, exc], 1)
 
     def set_property(self, key, value):
-        key = 'ListItem.{}'.format(key)
+        key = '{}.{}'.format(key, self.property_prefix)
         try:
             if value is None:
                 window.get_property(key, clear_property=True)

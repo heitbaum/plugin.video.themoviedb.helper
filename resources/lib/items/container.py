@@ -128,6 +128,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
                     return True
 
     def get_kodi_database(self, tmdb_type):
+        # TODO: Add check for addon setting to merge details here.
         if tmdb_type == 'movie':
             return rpc.KodiLibrary(dbtype='movie')
         if tmdb_type == 'tv':
