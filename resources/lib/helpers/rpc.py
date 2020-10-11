@@ -84,7 +84,7 @@ def get_person_stats(person):
     return infoproperties
 
 
-def set_watched(self, dbid=None, dbtype=None, plays=1):
+def set_watched(dbid=None, dbtype=None, plays=1):
     if not dbid or not dbtype:
         return
     db_key = "{}id".format(dbtype)

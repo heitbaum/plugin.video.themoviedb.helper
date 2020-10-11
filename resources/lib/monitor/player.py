@@ -93,11 +93,11 @@ class PlayerMonitor(xbmc.Player, common.CommonMonitorFunctions):
         self.set_properties(self.details)
 
     def set_watched(self):
-        if not self.dbid or not self.playerstring or not self.playerstring.get('tmdb_id'):
+        if not self.playerstring or not self.playerstring.get('tmdb_id'):
             return
         if not self.current_time or not self.total_time:
             return
-        if '{}'.format(self.playerstring.get('tmdb_id')) != '{}'.format(self.details.get('tmdb_id')):
+        if '{}'.format(self.playerstring.get('tmdb_id')) != '{}'.format(self.details.get('unique_ids', {}).get('tmdb')):
             return  # Item in the player doesn't match so don't mark as watched
 
         # Only update if progress is 75% or more
@@ -106,6 +106,26 @@ class PlayerMonitor(xbmc.Player, common.CommonMonitorFunctions):
             return
 
         if self.playerstring.get('tmdb_type') == 'episode':
-            rpc.set_watched(dbid=self.dbid, dbtype='episode')
+            tvshowid = rpc.KodiLibrary('tvshow').get_info(
+                info='dbid',
+                imdb_id=self.playerstring.get('imdb_id'),
+                tmdb_id=self.playerstring.get('tmdb_id'),
+                tvdb_id=self.playerstring.get('tvdb_id'))
+            if not tvshowid:
+                return
+            dbid = rpc.KodiLibrary('episode', tvshowid).get_info(
+                info='dbid',
+                season=self.playerstring.get('season'),
+                episode=self.playerstring.get('episode'))
+            if not dbid:
+                return
+            rpc.set_watched(dbid=dbid, dbtype='episode')
         elif self.playerstring.get('tmdb_type') == 'movie':
-            rpc.set_watched(dbid=self.dbid, dbtype='movie')
+            dbid = rpc.KodiLibrary('movie').get_info(
+                info='dbid',
+                imdb_id=self.playerstring.get('imdb_id'),
+                tmdb_id=self.playerstring.get('tmdb_id'),
+                tvdb_id=self.playerstring.get('tvdb_id'))
+            if not dbid:
+                return
+            rpc.set_watched(dbid=dbid, dbtype='movie')

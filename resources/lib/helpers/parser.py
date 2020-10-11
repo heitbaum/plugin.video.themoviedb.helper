@@ -70,7 +70,7 @@ def urlencode_params(*args, **kwargs):
     return urlencode(params)
 
 
-def encode_url(path, **kwargs):
+def encode_url(path=None, **kwargs):
     path = path or PLUGINPATH
     paramstring = '?{}'.format(urlencode_params(**kwargs)) if kwargs else ''
     return '{}{}'.format(path, paramstring)

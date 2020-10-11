@@ -139,7 +139,7 @@ class Script(object):
         if any(x in WM_PARAMS for x in self.params):
             return WindowManager(**self.params).router()
         if self.params.get('play'):
-            return play_external()
+            return play_external(**self.params)
         if self.params.get('restart_service'):
             # Only do the import here because this function only for debugging purposes
             from resources.lib.monitor.service import restart_service_monitor

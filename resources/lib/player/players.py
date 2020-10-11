@@ -13,6 +13,7 @@ from resources.lib.helpers.plugin import ADDON, PLUGINPATH, ADDONPATH
 from resources.lib.items.utils import ItemUtils
 from resources.lib.helpers.rpc import KodiLibrary
 from resources.lib.helpers.parser import try_int, try_decode, try_encode
+from resources.lib.helpers.setutils import del_empty_keys
 from resources.lib.helpers.fileutils import get_files_in_folder, read_file, normalise_filesize
 from resources.lib.helpers.decorators import busy_dialog
 from json import loads, dumps
@@ -65,6 +66,19 @@ class Players(object):
             self.details = self._get_item_details(tmdb_type, tmdb_id, season, episode)
             self.item = self._get_detailed_item(tmdb_type, tmdb_id, season, episode)
             self.dialog_players = self._get_players_for_dialog(tmdb_type)
+            self.playerstring = self._get_playerstring(tmdb_type, tmdb_id, season, episode)
+
+    def _get_playerstring(self, tmdb_type, tmdb_id, season=None, episode=None):
+        playerstring = {}
+        playerstring['tmdb_type'] = 'episode' if tmdb_type in ['episode', 'tv'] else 'movie'
+        playerstring['tmdb_id'] = tmdb_id
+        playerstring['imdb_id'] = self.details.unique_ids.get('imdb')
+        if tmdb_type in ['episode', 'tv']:
+            playerstring['imdb_id'] = self.details.unique_ids.get('tvshow.imdb')
+            playerstring['tvdb_id'] = self.details.unique_ids.get('tvshow.tvdb')
+            playerstring['season'] = season
+            playerstring['episode'] = episode
+        return dumps(del_empty_keys(playerstring))
 
     def _check_assert(self, keys=[]):
         if not self.item:
@@ -444,8 +458,9 @@ class Players(object):
             return
 
         # Strm files need to play with PlayMedia() to resolve properly
-        # PlayMedia() will crash Kodi if external addon doesn't resolve directly to playable file so send to player instead
-        # Returning path to Container and using setResolvedUrl is also not possible because external addon might not resolve
+        # Send to xbmc.Player() over PlayMedia() for urls so we can merge our listitem details
+        # Using setResolvedUrl directly isn't possible because external addon might need to resolve itself first
+        # Also some addons don't resolve using isPlayable and run a command instead or need to open folder
         action = None
         if not is_folder and path.endswith('.strm'):
             action = u'PlayMedia(\"{0}\")'.format(path)
@@ -453,10 +468,15 @@ class Players(object):
             action = u'Container.Update({0})'.format(path)
         elif is_folder:
             action = u'ActivateWindow(videos,{0},return)'.format(path)
+        # elif not is_folder:  # Uncomment to send url to PlayMedia rather than xbmc.Player()
+        #     action = u'PlayMedia(\"{0}\")'.format(path)
 
         if action:
             xbmc.executebuiltin(try_encode(try_decode(action)))
         if not action and not is_folder:
             xbmc.Player().play(path, listitem)
+
+        if not is_folder and self.playerstring:
+            window.get_property('PlayerInfoString', set_property=self.playerstring)
 
         return path

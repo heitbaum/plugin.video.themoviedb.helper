@@ -4,13 +4,13 @@ import xbmcplugin
 import resources.lib.helpers.plugin as plugin
 import resources.lib.helpers.constants as constants
 import resources.lib.helpers.rpc as rpc
-from resources.lib.script import related_lists
+import resources.lib.script as script
 from resources.lib.items.listitem import ListItem
 from resources.lib.tmdb.api import TMDb
 from resources.lib.fanarttv.api import FanartTV
 from resources.lib.items.utils import ItemUtils
 from resources.lib.player.players import Players
-from resources.lib.helpers.plugin import ADDON, kodi_log
+from resources.lib.helpers.plugin import ADDON, kodi_log, ADDONPATH
 from resources.lib.items.basedir import BaseDirLists
 from resources.lib.tmdb.lists import TMDbLists
 from resources.lib.trakt.lists import TraktLists
@@ -232,24 +232,32 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         """
         Kodi does 5x retries to resolve url if isPlayable property is set
         Since our external players might not return resolvable files we don't use this method
-        Instead we grab the url and pass it to xbmc.Player()
-        However, this property is forced for strm so we need to catch/prevent these retries
+        Instead we pass url to xbmc.Player() or PlayMedia() or ActivateWindow() depending on context
+        However, isPlayable is forced for strm so we need to catch/prevent retries from library strm
         Otherwise Kodi will try to re-trigger the play function because we didn't resolve
         We can get around the retry by setting a dummy resolved item if playing via strm
         TMDbHelper sets an islocal flag in its strm files so we can determine what called play
-        Fixes in Matrix should solve this issue so we won't need this hack anymore
+        Mention of fixes in Matrix that should solve this issue so we won't need this hack anymore
         """
-        if self.params.get('islocal'):
-            xbmcplugin.setResolvedUrl(self.handle, True, ListItem().get_listitem())
+
+        if self.params.get('islocal', False):
+            xbmcplugin.setResolvedUrl(self.handle, True, ListItem(
+                path='{}/resources/poster.png'.format(ADDONPATH)).get_listitem())
         if not self.params.get('tmdb_id'):
             self.params['tmdb_id'] = TMDb().get_tmdb_id(**self.params)
+        # self.params['play'] = self.params.pop('tmdb_type')
+        # self.params.pop('info', None)
+        # url = 'plugin.video.themoviedb.helper'
+        # for k, v in self.params.items():
+        #     url = '{},{}={}'.format(url, k, v)
+        # xbmc.executebuiltin('RunScript({})'.format(url))
         Players(**self.params).play()
 
     def context_related(self):
         if not self.params.get('tmdb_id'):
             self.params['tmdb_id'] = TMDb().get_tmdb_id(**self.params)
         self.params['container_update'] = True
-        related_lists(**self.params)
+        script.related_lists(**self.params)
 
     def router(self):
         if self.params.get('info') == 'play':

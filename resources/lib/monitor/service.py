@@ -39,7 +39,7 @@ class ServiceMonitor(object):
 
     def _on_fullscreen(self):
         if self.player_monitor.isPlayingVideo():
-            self.player_monitor.currenttime = self.player_monitor.getTime()
+            self.player_monitor.current_time = self.player_monitor.getTime()
         xbmc.Monitor().waitForAbort(1)
 
     def _on_idle(self):
