@@ -186,7 +186,6 @@ def _get_item_details(dbid=None, method=None, key=None, properties=None):
     details = get_jsonrpc(method, params)
     if not details or not isinstance(details, dict):
         return {}
-    kodi_log(details, 1) if key == 'season' else None
     details = details.get('result', {}).get('{0}details'.format(key))
     if details:
         return _get_niceitem(details, key, dbid)
