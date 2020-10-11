@@ -94,7 +94,7 @@ class ListItemMonitor(CommonMonitorFunctions):
         if dbtype in ['actors', 'directors']:
             return 'person'
 
-    def get_cur_item(self):
+    def set_cur_item(self):
         self.dbtype = self.get_dbtype()
         self.dbid = self.get_infolabel('dbid')
         self.imdb_id = self.get_imdb_id()
@@ -102,24 +102,30 @@ class ListItemMonitor(CommonMonitorFunctions):
         self.year = self.get_infolabel('year')
         self.season = self.get_season()
         self.episode = self.get_episode()
-        return u'{}.{}.{}.{}.{}.{}.{}'.format(
-            self.dbtype, self.dbid, self.imdb_id, self.query, self.year, self.season, self.episode)
 
-    def is_same_item(self, update=True, pre_item=None):
-        pre_item = pre_item or self.pre_item
+    def get_cur_item(self):
+        return (
+            self.get_infolabel('dbtype'),
+            self.get_infolabel('dbid'),
+            self.get_infolabel('imdb'),
+            self.get_infolabel('label'),
+            self.get_infolabel('year'),
+            self.get_infolabel('season'),
+            self.get_infolabel('episode'))
+
+    def is_same_item(self, update=False):
         self.cur_item = self.get_cur_item()
-        if self.cur_item == pre_item:
+        if self.cur_item == self.pre_item:
             return self.cur_item
         if update:
             self.pre_item = self.cur_item
 
     def get_cur_folder(self):
-        return '{}.{}.{}'.format(self.container, self.get_dbtype(), self.get_numitems())
+        return (self.container, xbmc.getInfoLabel('Container.Content()'), self.get_numitems())
 
-    def is_same_folder(self, update=True, pre_folder=None):
-        pre_folder = pre_folder or self.pre_folder
+    def is_same_folder(self, update=True):
         self.cur_folder = self.get_cur_folder()
-        if self.cur_folder == pre_folder:
+        if self.cur_folder == self.pre_folder:
             return self.cur_folder
         if update:
             self.pre_folder = self.cur_folder
@@ -129,10 +135,9 @@ class ListItemMonitor(CommonMonitorFunctions):
             if self.dbtype not in ['movies', 'tvshows', 'episodes']:
                 if tmdb_type not in ['movie', 'tv']:
                     return
-            pre_item = self.pre_item
             if ADDON.getSettingBool('service_fanarttv_lookup'):
                 details = self.get_fanarttv_artwork(details, tmdb_type)
-            if not self.is_same_item(update=False, pre_item=pre_item):
+            if not self.is_same_item():
                 return
             self.set_iter_properties(details.get('art', {}), monitor_common.SETMAIN_ARTWORK)
 
@@ -150,7 +155,6 @@ class ListItemMonitor(CommonMonitorFunctions):
         try:
             if tmdb_type not in ['movie', 'tv']:
                 return
-            pre_item = self.pre_item
             details = self.get_omdb_ratings(details)
             if tmdb_type == 'movie':
                 details = self.get_imdb_top250_rank(details)
@@ -158,7 +162,7 @@ class ListItemMonitor(CommonMonitorFunctions):
                 details = self.get_trakt_ratings(
                     details, 'movie' if tmdb_type == 'movie' else 'show',
                     season=self.season, episode=self.episode)
-            if not self.is_same_item(update=False, pre_item=pre_item):
+            if not self.is_same_item():
                 return
             self.set_iter_properties(details.get('infoproperties', {}), monitor_common.SETPROP_RATINGS)
         except Exception as exc:
@@ -167,7 +171,7 @@ class ListItemMonitor(CommonMonitorFunctions):
     def clear_on_scroll(self):
         if not self.properties and not self.index_properties:
             return
-        if self.is_same_item(update=False):
+        if self.is_same_item():
             return
         ignore_keys = None
         if self.dbtype in ['episodes', 'seasons']:
@@ -195,7 +199,7 @@ class ListItemMonitor(CommonMonitorFunctions):
         self.get_container()
 
         # Don't bother getting new details if we've got the same item
-        if self.is_same_item():
+        if self.is_same_item(update=True):
             return
 
         # Parent folder item so clear properties and stop
@@ -209,6 +213,9 @@ class ListItemMonitor(CommonMonitorFunctions):
         # Possible that our new look-up will fail so good to have a clean slate
         if not self.is_same_folder():
             self.clear_properties()
+
+        # Get look-up details
+        self.set_cur_item()
 
         # Blur Image
         if xbmc.getCondVisibility("Skin.HasSetting(TMDbHelper.EnableBlur)"):

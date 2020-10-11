@@ -235,7 +235,7 @@ class _TraktSync():
             self.last_activities = self.get_response_json('sync/last_activities')
         return self._get_activity_timestamp(self.last_activities, activity_type=activity_type, activity_key=activity_key)
 
-    @use_activity_cache(cache_days=cache.CACHE_SHORT, pickle_object=True)
+    @use_activity_cache(cache_days=cache.CACHE_SHORT, pickle_object=False)
     def _get_sync_response(self, path, extended=None):
         """ Quick sub-cache routine to avoid recalling full sync list if we also want to quicklist it """
         return self.get_response_json(path, extended=extended, limit=0)
@@ -270,44 +270,44 @@ class _TraktSync():
                         if episode == j.get('number'):
                             return True
 
-    @use_activity_cache('movies', 'watched_at', cache.CACHE_LONG, pickle_object=True)
+    @use_activity_cache('movies', 'watched_at', cache.CACHE_LONG, pickle_object=False)
     def get_sync_watched_movies(self, trakt_type, id_type=None):
         return self._get_sync('sync/watched/movies', 'movie', id_type=id_type)
 
     # Watched shows sync uses short cache as needed for progress checks and new episodes might air tomorrow
-    @use_activity_cache('episodes', 'watched_at', cache.CACHE_SHORT, pickle_object=True)
+    @use_activity_cache('episodes', 'watched_at', cache.CACHE_SHORT, pickle_object=False)
     def get_sync_watched_shows(self, trakt_type, id_type=None):
         return self._get_sync('sync/watched/shows', 'show', id_type=id_type, extended='full')
 
-    @use_activity_cache('movies', 'collected_at', cache.CACHE_LONG, pickle_object=True)
+    @use_activity_cache('movies', 'collected_at', cache.CACHE_LONG, pickle_object=False)
     def get_sync_collection_movies(self, trakt_type, id_type=None):
         return self._get_sync('sync/collection/movies', 'movie', id_type=id_type)
 
-    @use_activity_cache('episodes', 'collected_at', cache.CACHE_LONG, pickle_object=True)
+    @use_activity_cache('episodes', 'collected_at', cache.CACHE_LONG, pickle_object=False)
     def get_sync_collection_shows(self, trakt_type, id_type=None):
         return self._get_sync('sync/collection/shows', trakt_type, id_type=id_type)
 
-    @use_activity_cache('movies', 'watched_at', cache.CACHE_LONG, pickle_object=True)
+    @use_activity_cache('movies', 'watched_at', cache.CACHE_LONG, pickle_object=False)
     def get_sync_playback_movies(self, trakt_type, id_type=None):
         return self._get_sync('sync/playback/movies', 'movie', id_type=id_type)
 
-    @use_activity_cache('episodes', 'watched_at', cache.CACHE_LONG, pickle_object=True)
+    @use_activity_cache('episodes', 'watched_at', cache.CACHE_LONG, pickle_object=False)
     def get_sync_playback_shows(self, trakt_type, id_type=None):
         return self._get_sync('sync/playback/episodes', trakt_type, id_type=id_type)
 
-    @use_activity_cache('movies', 'watchlisted_at', cache.CACHE_LONG, pickle_object=True)
+    @use_activity_cache('movies', 'watchlisted_at', cache.CACHE_LONG, pickle_object=False)
     def get_sync_watchlist_movies(self, trakt_type, id_type=None):
         return self._get_sync('sync/watchlist/movies', 'movie', id_type=id_type)
 
-    @use_activity_cache('shows', 'watchlisted_at', cache.CACHE_LONG, pickle_object=True)
+    @use_activity_cache('shows', 'watchlisted_at', cache.CACHE_LONG, pickle_object=False)
     def get_sync_watchlist_shows(self, trakt_type, id_type=None):
         return self._get_sync('sync/watchlist/shows', 'shows', id_type=id_type)
 
-    @use_activity_cache('movies', 'recommendations_at', cache.CACHE_LONG, pickle_object=True)
+    @use_activity_cache('movies', 'recommendations_at', cache.CACHE_LONG, pickle_object=False)
     def get_sync_recommendations_movies(self, trakt_type, id_type=None):
         return self._get_sync('sync/recommendations/movies', 'movie', id_type=id_type)
 
-    @use_activity_cache('shows', 'recommendations_at', cache.CACHE_LONG, pickle_object=True)
+    @use_activity_cache('shows', 'recommendations_at', cache.CACHE_LONG, pickle_object=False)
     def get_sync_recommendations_shows(self, trakt_type, id_type=None):
         return self._get_sync('sync/recommendations/shows', 'shows', id_type=id_type)
 

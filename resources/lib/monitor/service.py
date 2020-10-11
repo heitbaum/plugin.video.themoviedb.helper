@@ -22,31 +22,32 @@ class ServiceMonitor(object):
         self.cron_job.setName('Cron Thread')
         self.player_monitor = None
         self.listitem_monitor = ListItemMonitor()
+        self.xbmc_monitor = xbmc.Monitor()
 
     def _on_listitem(self):
         try:
             self.listitem_monitor.get_listitem()
         except Exception as exc:
             kodi_log(u'_on_listitem\n{}'.format(exc), 1)
-        xbmc.Monitor().waitForAbort(0.3)
+        self.xbmc_monitor.waitForAbort(0.3)
 
     def _on_scroll(self):
         try:
             self.listitem_monitor.clear_on_scroll()
         except Exception as exc:
             kodi_log(u'_on_scroll\n{}'.format(exc), 1)
-        xbmc.Monitor().waitForAbort(1)
+        self.xbmc_monitor.waitForAbort(1)
 
     def _on_fullscreen(self):
         if self.player_monitor.isPlayingVideo():
             self.player_monitor.current_time = self.player_monitor.getTime()
-        xbmc.Monitor().waitForAbort(1)
+        self.xbmc_monitor.waitForAbort(1)
 
     def _on_idle(self):
-        xbmc.Monitor().waitForAbort(30)
+        self.xbmc_monitor.waitForAbort(30)
 
     def _on_modal(self):
-        xbmc.Monitor().waitForAbort(2)
+        self.xbmc_monitor.waitForAbort(2)
 
     def _on_clear(self):
         """
@@ -58,19 +59,19 @@ class ServiceMonitor(object):
                 return self.listitem_monitor.clear_properties()
         except Exception as exc:
             kodi_log(u'_on_clear\n{}'.format(exc), 1)
-        xbmc.Monitor().waitForAbort(1)
+        self.xbmc_monitor.waitForAbort(1)
 
     def _on_exit(self):
-        if self.player_monitor:
-            self.player_monitor.exit = True
-            del self.player_monitor
         self.listitem_monitor.clear_properties()
+        self.player_monitor.exit = True
+        del self.player_monitor
         del self.listitem_monitor
+        del self.xbmc_monitor
         window.get_property('ServiceStarted', clear_property=True)
         window.get_property('ServiceStop', clear_property=True)
 
     def poller(self):
-        while not xbmc.Monitor().abortRequested() and not self.exit:
+        while not self.xbmc_monitor.abortRequested() and not self.exit:
             if window.get_property('ServiceStop'):
                 self.cron_job.exit = True
                 self.exit = True
@@ -124,6 +125,5 @@ class ServiceMonitor(object):
     def run(self):
         window.get_property('ServiceStarted', 'True')
         self.cron_job.start()
-        if not self.player_monitor:
-            self.player_monitor = PlayerMonitor()
+        self.player_monitor = PlayerMonitor()
         self.poller()

@@ -30,6 +30,15 @@ def try_str(value):
         return ''
 
 
+def try_type(value, output=None):
+    if output == int:
+        return try_int(value)
+    if output == str:
+        return try_str(value)
+    if output == float:
+        return try_float(value)
+
+
 def try_decode(string, encoding='utf-8', errors=None):
     """helper to decode strings for PY 2 """
     if sys.version_info.major == 3:

@@ -3,6 +3,7 @@ import xbmcgui
 import datetime
 import resources.lib.helpers.plugin as plugin
 import resources.lib.helpers.cache as cache
+import resources.lib.tmdb.mapping as mapping
 from resources.lib.request.api import RequestAPI
 from resources.lib.helpers.downloader import Downloader
 from resources.lib.items.listitem import ListItem
@@ -12,17 +13,11 @@ from resources.lib.helpers.parser import try_int, try_float
 from resources.lib.helpers.timedate import format_date, age_difference
 from resources.lib.helpers.setutils import dict_to_list, merge_two_items, del_empty_keys, iter_props, get_params
 from resources.lib.helpers.fileutils import use_pickle
+from resources.lib.helpers.constants import IMAGEPATH_ORIGINAL, IMAGEPATH_POSTER, TMDB_GENRE_IDS
 from json import loads
 
 
-IMAGEPATH_ORIGINAL = 'https://image.tmdb.org/t/p/original'
-IMAGEPATH_POSTER = 'https://image.tmdb.org/t/p/w500'
 API_URL = 'https://api.themoviedb.org/3'
-TMDB_GENRE_IDS = {
-    "Action": 28, "Adventure": 12, "Animation": 16, "Comedy": 35, "Crime": 80, "Documentary": 99, "Drama": 18,
-    "Family": 10751, "Fantasy": 14, "History": 36, "Horror": 27, "Kids": 10762, "Music": 10402, "Mystery": 9648,
-    "News": 10763, "Reality": 10764, "Romance": 10749, "Science Fiction": 878, "Sci-Fi & Fantasy": 10765, "Soap": 10766,
-    "Talk": 10767, "TV Movie": 10770, "Thriller": 53, "War": 10752, "War & Politics": 10768, "Western": 37}
 APPEND_TO_RESPONSE = 'credits,release_dates,content_ratings,external_ids,movie_credits,tv_credits,keywords,reviews'
 
 
@@ -427,9 +422,9 @@ class TMDb(RequestAPI):
     def get_season_list(self, tmdb_id):
         request = self.get_request_sc('tv/{}'.format(tmdb_id))
         base_item = self.get_details('tv', tmdb_id)
+        tvshow_title = base_item.get('infolabels', {}).get('title')
         items = []
         items_end = []
-        tvshow_title = self.get_details('tv', tmdb_id).get('infolabels', {}).get('title')
         for i in request.get('seasons', []) if request else []:
             item = self.get_info(i, 'tv', base_item.copy())
             item['infolabels']['mediatype'] = 'season'
@@ -444,10 +439,12 @@ class TMDb(RequestAPI):
     def get_episode_list(self, tmdb_id, season):
         request = self.get_request_sc('tv/{}/season/{}'.format(tmdb_id, season))
         base_item = self.get_details('tv', tmdb_id, season=season)
+        tvshowtitle = base_item.get('infolabels', {}).get('title')
         items = []
         for i in request.get('episodes', []) if request else []:
             item = self.get_info(i, 'tv', base_item=base_item.copy())
             item['infolabels']['mediatype'] = 'episode'
+            item['infolabels']['tvshowtitle'] = tvshowtitle
             item['unique_ids']['tvshow.tmdb'] = tmdb_id
             item['unique_ids']['tmdb'] = tmdb_id
             item['params']['tmdb_id'] = tmdb_id
@@ -557,7 +554,7 @@ class TMDb(RequestAPI):
     def get_basic_list(self, path, tmdb_type, key='results', params=None, base_tmdb_type=None, **kwargs):
         response = self.get_request_sc(path, **kwargs)
         results = response.get(key, []) if response else []
-        items = [self.get_info(
+        items = [mapping.get_info(
             i, tmdb_type,
             detailed=False,
             params_definition=params,
