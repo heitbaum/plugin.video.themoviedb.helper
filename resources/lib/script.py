@@ -7,6 +7,7 @@ import xbmc
 import xbmcgui
 import resources.lib.items.basedir as basedir
 import resources.lib.helpers.window as window
+import resources.lib.helpers.update as update
 from resources.lib.fanarttv.api import FanartTV
 from resources.lib.tmdb.api import TMDb
 from resources.lib.trakt.api import TraktAPI
@@ -89,6 +90,14 @@ def kodi_setting(kodi_setting, **kwargs):
         set_property=u'{}'.format(response.get('result', {}).get('value', '')))
 
 
+def user_list(user_list, user_slug=None, **kwargs):
+    user_slug = user_slug or 'me'
+    if user_slug and user_list:
+        update.add_userlist(
+            user_slug=user_slug, list_slug=user_list,
+            confirm=False, allow_update=True, busy_dialog=True)
+
+
 class Script(object):
     def get_params(self):
         params = {}
@@ -125,6 +134,8 @@ class Script(object):
             return refresh_details(**self.params)
         if self.params.get('related_lists'):
             return related_lists(**self.params)
+        if self.params.get('user_list'):
+            return user_list(**self.params)
         if any(x in WM_PARAMS for x in self.params):
             return WindowManager(**self.params).router()
         if self.params.get('play'):

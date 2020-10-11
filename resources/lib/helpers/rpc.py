@@ -23,6 +23,13 @@ def get_jsonrpc(method=None, params=None):
     return response
 
 
+def get_kodi_library(tmdb_type):
+    if tmdb_type == 'movie':
+        return KodiLibrary(dbtype='movie')
+    if tmdb_type == 'tv':
+        return KodiLibrary(dbtype='tvshow')
+
+
 def get_library(dbtype=None, properties=None, filterr=None):
     if dbtype == "movie":
         method = "VideoLibrary.GetMovies"

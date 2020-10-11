@@ -40,12 +40,22 @@ def get_region_date(date_obj, region='dateshort', del_fmt=':%S'):
     return date_obj.strftime(date_fmt)
 
 
-def is_future_timestamp(time_str, time_fmt="%Y-%m-%dT%H:%M:%S", time_lim=19, utc_convert=False):
+def is_future_timestamp(time_str, time_fmt="%Y-%m-%dT%H:%M:%S", time_lim=19, utc_convert=False, use_today=False, days=0):
     time_obj = convert_timestamp(time_str, time_fmt, time_lim, utc_convert)
     if not isinstance(time_obj, datetime.datetime):
         return
-    if time_obj > datetime.datetime.now():
+    date_obj = datetime.datetime.today() if use_today else datetime.datetime.now()
+    if days:
+        date_obj = date_obj + datetime.timedelta(days=days)
+    if time_obj > date_obj:
         return time_str
+
+
+def get_todays_date(days=0):
+    date_obj = datetime.datetime.today()
+    if days:
+        date_obj + datetime.timedelta(days=days)
+    return date_obj.strftime('%Y-%m-%d')
 
 
 def convert_timestamp(time_str, time_fmt="%Y-%m-%dT%H:%M:%S", time_lim=19, utc_convert=False):

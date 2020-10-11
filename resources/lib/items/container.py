@@ -4,7 +4,7 @@ import xbmcplugin
 import resources.lib.helpers.plugin as plugin
 import resources.lib.helpers.constants as constants
 import resources.lib.helpers.rpc as rpc
-from resources.lib.script import Script
+from resources.lib.script import related_lists
 from resources.lib.items.listitem import ListItem
 from resources.lib.tmdb.api import TMDb
 from resources.lib.fanarttv.api import FanartTV
@@ -128,11 +128,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
                     return True
 
     def get_kodi_database(self, tmdb_type):
-        # TODO: Add check for addon setting to merge details here.
-        if tmdb_type == 'movie':
-            return rpc.KodiLibrary(dbtype='movie')
-        if tmdb_type == 'tv':
-            return rpc.KodiLibrary(dbtype='tvshow')
+        return rpc.get_kodi_library(tmdb_type)
 
     def get_container_content(self, tmdb_type, season=None, episode=None):
         if tmdb_type == 'tv' and season and episode:
@@ -253,7 +249,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         if not self.params.get('tmdb_id'):
             self.params['tmdb_id'] = TMDb().get_tmdb_id(**self.params)
         self.params['container_update'] = True
-        Script().related_lists(**self.params)
+        related_lists(**self.params)
 
     def router(self):
         if self.params.get('info') == 'play':

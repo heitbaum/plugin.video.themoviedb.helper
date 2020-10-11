@@ -3,10 +3,11 @@ import os
 import sys
 import xbmc
 import json
+import xbmcgui
 import xbmcvfs
 import datetime
 import unicodedata
-from resources.lib.helpers.parser import try_int
+from resources.lib.helpers.parser import try_int, try_encode
 from resources.lib.helpers.plugin import ADDON, ADDONDATA, kodi_log
 from resources.lib.helpers.constants import VALID_FILECHARS
 from resources.lib.helpers.timedate import is_future_timestamp
@@ -56,6 +57,31 @@ def read_file(filepath):
     return content
 
 
+def write_to_file(filepath, content):
+    f = xbmcvfs.File(filepath, 'w')
+    f.write(try_encode(content))
+    f.close()
+
+
+def get_tmdb_id_nfo(basedir, foldername, tmdb_type='tv'):
+    try:
+        folder = basedir + foldername + '/'
+
+        # Get files ending with .nfo in folder
+        nfo_list = get_files_in_folder(folder, regex=r".*\.nfo$")
+
+        # Check our nfo files for TMDb ID
+        for nfo in nfo_list:
+            content = read_file(folder + nfo)  # Get contents of .nfo file
+            tmdb_id = content.replace('https://www.themoviedb.org/{}/'.format(tmdb_type), '')  # Clean content to retrieve tmdb_id
+            tmdb_id = tmdb_id.replace('&islocal=True', '')
+            if tmdb_id:
+                return tmdb_id
+
+    except Exception as exc:
+        kodi_log(u'ERROR GETTING TMDBID FROM NFO:\n{}'.format(exc))
+
+
 def dumps_to_file(data, folder, filename, indent=2):
     with open(os.path.join(_get_write_path(folder), filename), 'w') as file:
         json.dump(data, file, indent=indent)
@@ -68,7 +94,7 @@ def _get_write_path(folder):
     return main_dir
 
 
-def make_path(path):
+def make_path(path, warn_dialog=False):
     if xbmcvfs.exists(path):
         return xbmc.translatePath(path)
     if xbmcvfs.mkdirs(path):
@@ -76,6 +102,12 @@ def make_path(path):
     if ADDON.getSettingBool('ignore_folderchecking'):
         kodi_log(u'Ignored xbmcvfs folder check error\n{}'.format(path), 2)
         return xbmc.translatePath(path)
+    kodi_log(u'XBMCVFS unable to create path:\n{}'.format(path), 2)
+    if not warn_dialog:
+        return
+    xbmcgui.Dialog().ok(
+        'XBMCVFS', '{} [B]{}[/B]\n{}'.format(
+            ADDON.getLocalizedString(32122), path, ADDON.getLocalizedString(32123)))
 
 
 def get_pickle_name(cache_name):
