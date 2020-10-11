@@ -41,14 +41,14 @@ class CommonMonitorFunctions(object):
         self.property_prefix = 'ListItem'
 
     def clear_property(self, key):
-        key = '{}.{}'.format(key, self.property_prefix)
+        key = '{}.{}'.format(self.property_prefix, key)
         try:
             window.get_property(key, clear_property=True)
         except Exception as exc:
             kodi_log(['Func: clear_property\n', key, exc], 1)
 
     def set_property(self, key, value):
-        key = '{}.{}'.format(key, self.property_prefix)
+        key = '{}.{}'.format(self.property_prefix, key)
         try:
             if value is None:
                 window.get_property(key, clear_property=True)

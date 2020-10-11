@@ -64,7 +64,8 @@ class ServiceMonitor(object):
         if self.player_monitor:
             self.player_monitor.exit = True
             del self.player_monitor
-        self.clear_properties()
+        self.listitem_monitor.clear_properties()
+        del self.listitem_monitor
         window.get_property('ServiceStarted', clear_property=True)
         window.get_property('ServiceStop', clear_property=True)
 

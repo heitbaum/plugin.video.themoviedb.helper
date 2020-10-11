@@ -66,7 +66,7 @@ class PlayerMonitor(xbmc.Player, common.CommonMonitorFunctions):
 
         self.tmdb_type = 'movie' if self.dbtype == 'movie' else 'tv'
         self.tmdb_id = self.get_tmdb_id(self.tmdb_type, self.imdb_id, self.query, self.year, self.epyear)
-        self.details = self.tmdb_api.get_detailed_item(self.tmdb_type, self.tmdb_id, season=self.season, episode=self.episode)
+        self.details = self.tmdb_api.get_details(self.tmdb_type, self.tmdb_id, season=self.season, episode=self.episode)
 
         # Clear everything if we didn't get details because nothing to compare
         if not self.details:
