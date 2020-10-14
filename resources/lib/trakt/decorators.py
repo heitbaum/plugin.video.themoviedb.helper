@@ -10,6 +10,34 @@ def is_authorized(func):
     return wrapper
 
 
+def use_lastupdated_cache(func, *args, **kwargs):
+    """
+    Not a decorator. Function to check sync_info last_updated_at to decide if cache or refresh
+    sync_info=self.get_sync('watched', 'show', 'slug').get(slug)
+    cache_name='TraktAPI.get_show_progress.response.{}'.format(slug)
+    """
+    sync_info = kwargs.pop('sync_info', None) or {}
+    cache_name = kwargs.pop('cache_name', None) or ''
+
+    # Get last modified timestamp from Trakt sync
+    last_updated_at = sync_info.get('last_updated_at')
+
+    # Get cached object
+    cached_obj = cache.get_cache(cache_name) if last_updated_at else None
+
+    # Return the cached response if show hasn't been modified on Trakt or watched since caching
+    if cached_obj and cached_obj.get('response') and cached_obj.get('last_updated_at'):
+        if cached_obj['last_updated_at'] == last_updated_at:
+            return cached_obj['response']
+
+    # Otherwise get a new response from Trakt and cache it with the timestamp
+    # Cache is long (14 days) because we refresh earlier if last_updated_at timestamps change
+    response = func(*args, **kwargs)
+    if response and last_updated_at:
+        cache.set_cache({'response': response, 'last_updated_at': last_updated_at}, cache_name)
+    return response
+
+
 def use_activity_cache(activity_type=None, activity_key=None, cache_days=None, pickle_object=False):
     """
     Decorator to cache and refresh if last activity changes

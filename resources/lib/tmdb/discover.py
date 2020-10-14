@@ -8,7 +8,7 @@ import resources.lib.helpers.cache as cache
 import resources.lib.helpers.window as window
 import resources.lib.helpers.plugin as plugin
 from resources.lib.tmdb.api import TMDb
-from resources.lib.helpers.plugin import ADDONPATH, ADDON, PLUGINPATH
+from resources.lib.helpers.plugin import ADDONPATH, ADDON, PLUGINPATH, viewitems
 from resources.lib.helpers.parser import try_int, try_decode, encode_url
 from resources.lib.helpers.setutils import merge_two_dicts, split_items
 
@@ -737,7 +737,7 @@ def _edit_rules(idx=-1):
         return
     _win_prop('save_index', set_property='{}'.format(len(history) - 1 - idx))
     _win_prop('save_label', set_property='{}'.format(item.get('label')))
-    for k, v in item.get('params', {}).items():
+    for k, v in viewitems(item.get('params', {})):
         if k in ['info', 'tmdb_type']:
             continue
         _win_prop(k, set_property=v)

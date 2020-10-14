@@ -7,13 +7,14 @@ import resources.lib.helpers.window as window
 from resources.lib.helpers.cache import use_simple_cache
 from json import loads, dumps
 from resources.lib.request.api import RequestAPI
-from resources.lib.helpers.plugin import ADDON, PLUGINPATH, kodi_log
+from resources.lib.helpers.plugin import ADDON, PLUGINPATH, kodi_log, viewitems
 from resources.lib.items.pages import PaginatedItems
 from resources.lib.trakt.items import TraktItems
 from resources.lib.trakt.decorators import is_authorized, use_activity_cache
 from resources.lib.trakt.progress import _TraktProgress
 from resources.lib.helpers.parser import try_int
 from resources.lib.helpers.timedate import date_in_range, get_region_date, convert_timestamp
+# from resources.lib.helpers.decorators import timer_report
 
 API_URL = 'https://api.trakt.tv/'
 CLIENT_ID = 'e6fde6173adf3c6af8fd1b0694b9b84d7c519cefc24482310e1de06c6abe5467'
@@ -104,7 +105,7 @@ class _TraktLists():
             item = {}
             item['label'] = i.get('name')
             item['infolabels'] = {'plot': i.get('description')}
-            item['infoproperties'] = {k: v for k, v in i.items() if v and type(v) not in [list, dict]}
+            item['infoproperties'] = {k: v for k, v in viewitems(i) if v and type(v) not in [list, dict]}
             item['art'] = {}
             item['params'] = {
                 'info': 'trakt_userlist',
@@ -164,7 +165,7 @@ class _TraktLists():
                 'air_day': air_date.strftime('%A'),
                 'air_day_short': air_date.strftime('%a'),
                 'air_date_short': air_date.strftime('%d %b')}
-            item['unique_ids'] = {'tvshow.{}'.format(k): v for k, v in i.get('show', {}).get('ids', {}).items()}
+            item['unique_ids'] = {'tvshow.{}'.format(k): v for k, v in viewitems(i.get('show', {}).get('ids', {}))}
             item['params'] = {
                 'info': 'details',
                 'tmdb_type': 'tv',
@@ -229,6 +230,7 @@ class _TraktSync():
             return activities.get(activity_type, {})
         return activities.get(activity_type, {}).get(activity_key)
 
+    # @timer_report('_get_last_activity')
     @is_authorized
     def _get_last_activity(self, activity_type=None, activity_key=None):
         if not self.last_activities:
@@ -238,7 +240,9 @@ class _TraktSync():
     @use_activity_cache(cache_days=cache.CACHE_SHORT, pickle_object=False)
     def _get_sync_response(self, path, extended=None):
         """ Quick sub-cache routine to avoid recalling full sync list if we also want to quicklist it """
-        return self.get_response_json(path, extended=extended, limit=0)
+        sync_name = 'sync_response.{}.{}'.format(path, extended)
+        self.sync[sync_name] = self.sync.get(sync_name) or self.get_response_json(path, extended=extended, limit=0)
+        return self.sync[sync_name]
 
     @is_authorized
     def _get_sync(self, path, trakt_type, id_type=None, extended=None):

@@ -4,7 +4,7 @@ from resources.lib.tmdb.api import TMDb
 from resources.lib.omdb.api import OMDb
 from resources.lib.trakt.api import TraktAPI
 from resources.lib.fanarttv.api import FanartTV
-from resources.lib.helpers.plugin import ADDON, kodi_log
+from resources.lib.helpers.plugin import ADDON, kodi_log, viewitems
 from resources.lib.helpers.parser import try_int
 from resources.lib.helpers.setutils import merge_two_dicts
 
@@ -78,7 +78,7 @@ class CommonMonitorFunctions(object):
             return
 
         index_properties = set()
-        for k, v in dictionary.items():
+        for k, v in viewitems(dictionary):
             if k in self.properties or k in SETPROP_RATINGS or k in SETMAIN_ARTWORK:
                 continue
             try:
@@ -149,7 +149,7 @@ class CommonMonitorFunctions(object):
         return item
 
     def get_trakt_ratings(self, item, trakt_type, season=None, episode=None):
-        ratings = TraktAPI().get_ratings(
+        ratings = self.trakt_api.get_ratings(
             trakt_type=trakt_type,
             imdb_id=item.get('unique_ids', {}).get('tvshow.imdb') or item.get('unique_ids', {}).get('imdb'),
             trakt_id=item.get('unique_ids', {}).get('tvshow.trakt') or item.get('unique_ids', {}).get('trakt'),

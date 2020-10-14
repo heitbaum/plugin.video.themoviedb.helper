@@ -43,6 +43,7 @@ class SyncItem():
         self.season = try_int(season) if season is not None else None
         self.episode = try_int(episode) if episode is not None else None
         self.id_type = id_type
+        self.trakt_api = TraktAPI()
 
     def _build_choices(self):
         choices = [{'name': ADDON.getLocalizedString(32298), 'method': 'userlist'}]
@@ -53,13 +54,13 @@ class SyncItem():
     def _sync_item_check(self, sync_type=None, method=None, name_add=None, name_remove=None, allow_episodes=False):
         if self.season is not None and (not allow_episodes or not self.episode):
             return
-        if TraktAPI().is_sync(self.trakt_type, self.unique_id, self.season, self.episode, self.id_type, sync_type):
+        if self.trakt_api.is_sync(self.trakt_type, self.unique_id, self.season, self.episode, self.id_type, sync_type):
             return {'name': name_remove, 'method': '{}/remove'.format(method)}
         return {'name': name_add, 'method': method}
 
     def _sync_userlist(self):
         with busy_dialog():
-            list_sync = TraktAPI().get_list_of_lists('users/me/lists') or []
+            list_sync = self.trakt_api.get_list_of_lists('users/me/lists') or []
             list_sync.append({'label': ADDON.getLocalizedString(32299)})
         x = xbmcgui.Dialog().contextmenu([i.get('label') for i in list_sync])
         if x == -1:
@@ -70,15 +71,15 @@ class SyncItem():
         if not list_slug:
             return
         with busy_dialog():
-            return TraktAPI().add_list_item(
+            return self.trakt_api.add_list_item(
                 list_slug, self.trakt_type, self.unique_id, self.id_type,
                 season=self.season, episode=self.episode)
 
     def _view_comments(self):
         trakt_type = 'show' if self.trakt_type in ['season', 'episode'] else self.trakt_type
         with busy_dialog():
-            slug = TraktAPI().get_id(self.unique_id, self.id_type, trakt_type, 'slug')
-            comments = TraktAPI().get_response_json('{}s'.format(trakt_type), slug, 'comments', limit=50) or []
+            slug = self.trakt_api.get_id(self.unique_id, self.id_type, trakt_type, 'slug')
+            comments = self.trakt_api.get_response_json('{}s'.format(trakt_type), slug, 'comments', limit=50) or []
             itemlist = [i.get('comment', '').replace('\n', ' ') for i in comments]
         return self._choose_comment(itemlist, comments)
 
@@ -102,7 +103,7 @@ class SyncItem():
         if method == 'comments':
             return self._view_comments()
         with busy_dialog():
-            return TraktAPI().sync_item(
+            return self.trakt_api.sync_item(
                 method, self.trakt_type, self.unique_id, self.id_type,
                 season=self.season, episode=self.episode)
 

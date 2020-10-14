@@ -4,9 +4,10 @@ import resources.lib.helpers.plugin as plugin
 import resources.lib.helpers.cache as cache
 from resources.lib.request.api import RequestAPI
 from resources.lib.items.listitem import ListItem
-from resources.lib.helpers.plugin import ADDON
+from resources.lib.helpers.plugin import ADDON, viewitems
 from resources.lib.helpers.setutils import del_empty_keys
 from resources.lib.helpers.decorators import busy_dialog
+# from resources.lib.helpers.decorators import timer_report
 
 
 API_URL = 'http://webservice.fanart.tv/v3'
@@ -182,7 +183,7 @@ class FanartTV(RequestAPI):
             xbmcgui.Dialog().ok('FanartTV', ADDON.getLocalizedString(32217).format(ftv_type, ftv_id))
         if ok_dialog and artwork:
             xbmcgui.Dialog().ok('FanartTV', ADDON.getLocalizedString(32218).format(
-                ftv_type, ftv_id, ', '.join([k.capitalize() for k, v in artwork.items() if v])))
+                ftv_type, ftv_id, ', '.join([k.capitalize() for k, v in viewitems(artwork) if v])))
         if artwork and container_refresh:
             xbmc.executebuiltin('Container.Refresh')
         return artwork

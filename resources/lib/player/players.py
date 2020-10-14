@@ -9,7 +9,7 @@ import resources.lib.helpers.window as window
 import resources.lib.helpers.constants as constants
 from resources.lib.tmdb.api import TMDb
 from resources.lib.items.listitem import ListItem
-from resources.lib.helpers.plugin import ADDON, PLUGINPATH, ADDONPATH
+from resources.lib.helpers.plugin import ADDON, PLUGINPATH, ADDONPATH, viewitems
 from resources.lib.items.utils import ItemUtils
 from resources.lib.helpers.rpc import KodiLibrary
 from resources.lib.helpers.parser import try_int, try_decode, try_encode
@@ -149,7 +149,7 @@ class Players(object):
             return []
         dialog_play = self._get_local_item(tmdb_type)
         dialog_search = []
-        for k, v in sorted(self.players.items(), key=lambda i: try_int(i[1].get('priority')) or 1000):
+        for k, v in sorted(viewitems(self.players), key=lambda i: try_int(i[1].get('priority')) or 1000):
             if tmdb_type == 'movie':
                 if v.get('play_movie') and self._check_assert(v.get('assert', {}).get('play_movie', [])):
                     dialog_play.append(self._get_built_player(file=k, mode='play_movie', value=v))
@@ -231,11 +231,11 @@ class Players(object):
             item['trakt'] = details.unique_ids.get('tvshow.trakt')
             item['slug'] = details.unique_ids.get('tvshow.slug')
 
-        for k, v in item.copy().items():
+        for k, v in viewitems(item.copy()):
             if k not in constants.PLAYERS_URLENCODE:
                 continue
             v = u'{0}'.format(v)
-            for key, value in {k: v, '{}_meta'.format(k): dumps(v)}.items():
+            for key, value in viewitems({k: v, '{}_meta'.format(k): dumps(v)}):
                 item[key] = value.replace(',', '')
                 item[key + '_+'] = value.replace(',', '').replace(' ', '+')
                 item[key + '_-'] = value.replace(',', '').replace(' ', '-')
@@ -275,7 +275,7 @@ class Players(object):
     def _get_path_from_rules(self, folder, action):
         """ Returns tuple of (path, is_folder) """
         for x, f in enumerate(folder):
-            for k, v in action.items():  # Iterate through our key (infolabel) / value (infolabel must match) pairs of our action
+            for k, v in viewitems(action):  # Iterate through our key (infolabel) / value (infolabel must match) pairs of our action
                 if k == 'position':  # We're looking for an item position not an infolabel
                     if try_int(string_format_map(v, self.item)) != x + 1:  # Format our position value and add one since people are dumb and don't know that arrays start at 0
                         break  # Not the item position we want so let's go to next item in folder

@@ -1,9 +1,10 @@
 import xbmc
 import xbmcgui
-from resources.lib.helpers.plugin import ADDON, ADDONPATH, PLUGINPATH, kodi_log
+from resources.lib.helpers.plugin import ADDON, ADDONPATH, PLUGINPATH, kodi_log, viewitems
 from resources.lib.helpers.parser import try_int, encode_url
 from resources.lib.helpers.timedate import is_future_timestamp
 from resources.lib.helpers.setutils import merge_two_dicts
+from resources.lib.helpers.decorators import timer_report
 
 
 class ListItem(object):
@@ -168,6 +169,7 @@ class ListItem(object):
                     self.infolabels['playcount'] = playcount
                     self.infolabels['overlay'] = 5
 
+    @timer_report('set_details')
     def set_details(self, details=None, reverse=False):
         if not details:
             return
@@ -206,18 +208,20 @@ class ListItem(object):
         self.label = format_label.format(season=season, episode=episode, label=self.infolabels.get('title', ''))
 
     def set_unique_ids_to_infoproperties(self):
-        for k, v in self.unique_ids.items():
+        for k, v in viewitems(self.unique_ids):
             if not v:
                 continue
             self.infoproperties['{}_id'.format(k)] = v
 
-    def set_params_to_infoproperties(self):
-        for k, v in self.params.items():
+    def set_params_to_infoproperties(self, widget=None):
+        for k, v in viewitems(self.params):
             if not k or not v:
                 continue
             self.infoproperties['item.{}'.format(k)] = v
         if self.params.get('tmdb_type'):
             self.infoproperties['item.type'] = self.params['tmdb_type']
+        if widget:
+            self.infoproperties['widget'] = widget
 
     def get_url(self):
         return encode_url(self.path, **self.params)
@@ -233,7 +237,7 @@ class ListItem(object):
         listitem.addContextMenuItems(self.context_menu)
 
         if self.stream_details:
-            for k, v in self.stream_details.items():
+            for k, v in viewitems(self.stream_details):
                 if not k or not v:
                     continue
                 for i in v:

@@ -113,7 +113,7 @@ def make_path(path, warn_dialog=False):
 def get_pickle_name(cache_name):
     cache_name = cache_name or ''
     cache_name = cache_name.replace('\\', '_').replace('/', '_').replace('.', '_').replace('?', '_').replace('&', '_').replace('=', '_').replace('__', '_')
-    return validify_filename(cache_name)
+    return validify_filename(cache_name).rstrip('_')
 
 
 def set_pickle(my_object, cache_name, cache_days=14):

@@ -4,13 +4,14 @@ import xbmcplugin
 import resources.lib.helpers.plugin as plugin
 import resources.lib.helpers.constants as constants
 import resources.lib.helpers.rpc as rpc
-import resources.lib.script as script
+import resources.lib.script.router as script
 from resources.lib.items.listitem import ListItem
 from resources.lib.tmdb.api import TMDb
+from resources.lib.trakt.api import TraktAPI
 from resources.lib.fanarttv.api import FanartTV
 from resources.lib.items.utils import ItemUtils
 from resources.lib.player.players import Players
-from resources.lib.helpers.plugin import ADDON, kodi_log, ADDONPATH
+from resources.lib.helpers.plugin import ADDON, kodi_log, ADDONPATH, viewitems
 from resources.lib.items.basedir import BaseDirLists
 from resources.lib.tmdb.lists import TMDbLists
 from resources.lib.trakt.lists import TraktLists
@@ -18,6 +19,7 @@ from resources.lib.tmdb.search import SearchLists
 from resources.lib.tmdb.discover import UserDiscoverLists
 from resources.lib.helpers.parser import try_decode, parse_paramstring
 from resources.lib.helpers.setutils import split_items, random_from_list, merge_two_dicts
+from resources.lib.helpers.decorators import timer_report
 
 
 def filtered_item(item, key, value, exclude=False):
@@ -46,6 +48,8 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         self.ftv_lookup = ADDON.getSettingBool('fanarttv_lookup')
         self.ftv_widget_lookup = ADDON.getSettingBool('widget_fanarttv_lookup')
         self.is_widget = True if self.params.get('widget') else False
+        self.trakt_api = TraktAPI()
+        self.tmdb_api = TMDb()
 
         # Filters and Exclusions
         self.filter_key = self.params.get('filter_key', None)
@@ -60,12 +64,13 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         if self.params.get('tmdb_type') in ['season', 'episode']:
             self.params['tmdb_type'] = 'tv'
 
+    @timer_report('add_items')
     def add_items(self, items=None, allow_pagination=True, parent_params=None, kodi_db=None, tmdb_cache_only=True):
         if not items:
             return
         check_is_aired = parent_params.get('info') not in constants.NO_LABEL_FORMATTING
         listitem_utils = ItemUtils(
-            kodi_db=self.kodi_db,
+            kodi_db=self.kodi_db, trakt_api=self.trakt_api, tmdb_api=self.tmdb_api,
             ftv_api=FanartTV(cache_only=self.ftv_is_cache_only(is_widget=self.is_widget)))
         for i in items:
             if not allow_pagination and 'next_page' in i:
@@ -83,7 +88,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             listitem.set_standard_context_menu()  # Set the context menu items
             listitem.set_unique_ids_to_infoproperties()  # Add unique ids to properties so accessible in skins
             listitem.set_params_info_reroute()  # Reroute details to proper end point
-            listitem.set_params_to_infoproperties()  # Set path params to properties for use in skins
+            listitem.set_params_to_infoproperties(self.plugin_category)  # Set path params to properties for use in skins
             xbmcplugin.addDirectoryItem(
                 handle=self.handle,
                 url=listitem.get_url(),
@@ -91,7 +96,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
                 isFolder=listitem.is_folder)
 
     def set_params_to_container(self, **kwargs):
-        for k, v in kwargs.items():
+        for k, v in viewitems(kwargs):
             if not k or not v:
                 continue
             try:
@@ -152,6 +157,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         self.plugin_category = item.get('label')
         return self.get_items(**item.get('params', {}))
 
+    @timer_report('get_items')
     def get_items(self, **kwargs):
         info = kwargs.get('info')
         if info == 'pass':
@@ -248,7 +254,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         # self.params['play'] = self.params.pop('tmdb_type')
         # self.params.pop('info', None)
         # url = 'plugin.video.themoviedb.helper'
-        # for k, v in self.params.items():
+        # for k, v in viewitems(self.params):
         #     url = '{},{}={}'.format(url, k, v)
         # xbmc.executebuiltin('RunScript({})'.format(url))
         Players(**self.params).play()

@@ -13,7 +13,7 @@ from resources.lib.tmdb.api import TMDb
 from resources.lib.trakt.api import TraktAPI
 from resources.lib.helpers.plugin import ADDON
 from resources.lib.helpers.rpc import get_jsonrpc
-from resources.lib.trakt.sync import SyncItem
+from resources.lib.script.sync import SyncItem
 from resources.lib.helpers.decorators import busy_dialog
 from resources.lib.helpers.parser import encode_url
 from resources.lib.window.manager import WindowManager
@@ -75,7 +75,7 @@ def refresh_details(tmdb_id=None, tmdb_type=None, season=None, episode=None, **k
     if not tmdb_id or not tmdb_type:
         return
     with busy_dialog():
-        details = TMDb().get_details(tmdb_type, tmdb_id, season=season, episode=episode)
+        details = TMDb().get_details(tmdb_type, tmdb_id, season, episode, cache_refresh=True)
     if details:
         xbmcgui.Dialog().ok('TMDbHelper', ADDON.getLocalizedString(32234).format(tmdb_type, tmdb_id))
         xbmc.executebuiltin('Container.Refresh')

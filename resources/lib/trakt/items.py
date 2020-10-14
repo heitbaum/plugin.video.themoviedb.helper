@@ -1,6 +1,6 @@
 import random
 import resources.lib.helpers.plugin as plugin
-from resources.lib.helpers.plugin import PLUGINPATH
+from resources.lib.helpers.plugin import PLUGINPATH, viewitems
 from resources.lib.helpers.setutils import del_empty_keys, get_params
 
 
@@ -71,7 +71,7 @@ def _get_item_infoproperties(item, item_type=None, infoproperties=None, show=Non
 def _get_item_unique_ids(item, unique_ids=None, prefix=None, show=None):
     prefix = prefix or ''
     unique_ids = unique_ids or {}
-    for k, v in item.get('ids', {}).items():
+    for k, v in viewitems(item.get('ids', {})):
         unique_ids['{}{}'.format(prefix, k)] = v
     if show:
         unique_ids = _get_item_unique_ids(show, unique_ids, prefix='tvshow.')
@@ -79,14 +79,15 @@ def _get_item_unique_ids(item, unique_ids=None, prefix=None, show=None):
     return del_empty_keys(unique_ids)
 
 
-def _get_item_info(item, item_type=None, base_item=None, check_tmdb_id=True, params_definition=None):
+def _get_item_info(item, item_type=None, base_item=None, check_tmdb_id=True, params_def=None):
     base_item = base_item or {}
     item_info = item.get(item_type, {}) or item
     show_item = item.get('show') if item_type == 'episode' else None
     if not item_info:
         return base_item
     if check_tmdb_id and not item_info.get('ids', {}).get('tmdb'):
-        return base_item
+        if not show_item or not show_item.get('ids', {}).get('tmdb'):
+            return base_item
     base_item['label'] = _get_item_title(item_info) or ''
     base_item['infolabels'] = _get_item_infolabels(item_info, item_type=item_type, infolabels=base_item.get('infolabels', {}), show=show_item)
     base_item['infoproperties'] = _get_item_infoproperties(item_info, item_type=item_type, infoproperties=base_item.get('infoproperties', {}), show=show_item)
@@ -95,7 +96,7 @@ def _get_item_info(item, item_type=None, base_item=None, check_tmdb_id=True, par
         item_info, plugin.convert_trakt_type(item_type),
         tmdb_id=base_item.get('unique_ids', {}).get('tmdb'),
         params=base_item.get('params', {}),
-        definition=params_definition)
+        definition=params_def)
     base_item['path'] = PLUGINPATH
     return base_item
 
@@ -115,13 +116,13 @@ class TraktItems():
         self.items = _sort_itemlist(self.items, self.sort_by, self.sort_how, self.trakt_type)
         return self.items
 
-    def configure_items(self, permitted_types=None, params_definition=None):
+    def configure_items(self, permitted_types=None, params_def=None):
         """ (Re)Configures items for passing to listitem class in container and returns configured items """
         for i in self.items:
             i_type = self.trakt_type or i.get('type', None)
             if permitted_types and i_type not in permitted_types:
                 continue
-            item = _get_item_info(i, item_type=i_type, params_definition=params_definition)
+            item = _get_item_info(i, item_type=i_type, params_def=params_def)
             if not item:
                 continue
             # Also add item to a list only containing that item type
@@ -130,8 +131,8 @@ class TraktItems():
             self.configured['items'].append(item)
         return self.configured
 
-    def build_items(self, sort_by=None, sort_how=None, permitted_types=None, params_definition=None):
+    def build_items(self, sort_by=None, sort_how=None, permitted_types=None, params_def=None):
         """ Sorts and Configures Items """
         self.sort_items(sort_by, sort_how)
-        self.configure_items(permitted_types, params_definition)
+        self.configure_items(permitted_types, params_def)
         return self.configured

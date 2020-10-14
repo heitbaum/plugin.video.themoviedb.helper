@@ -1,4 +1,6 @@
 import random
+from resources.lib.helpers.plugin import viewitems
+# from resources.lib.helpers.decorators import timer_report
 
 
 def random_from_list(items, remove_next_page=True):
@@ -15,6 +17,16 @@ def dict_to_list(items, key):
     return [i[key] for i in items if i.get(key)]
 
 
+def _quick_copy(v):
+    if isinstance(v, dict):
+        return v.copy()
+    return v
+
+
+def quick_copy(d):
+    return {k: _quick_copy(v) for k, v in viewitems(d)}
+
+
 def merge_two_dicts(x, y, reverse=False, deep=False):
     xx = y or {} if reverse else x or {}
     yy = x or {} if reverse else y or {}
@@ -22,7 +34,7 @@ def merge_two_dicts(x, y, reverse=False, deep=False):
     if not deep:   # modifies z with y's keys and values
         z.update(yy)
         return z
-    for k, v in yy.items():
+    for k, v in viewitems(yy):
         if isinstance(v, dict):
             merge_two_dicts(z.setdefault(k, {}), v, reverse=reverse, deep=True)
         elif v:
@@ -43,9 +55,10 @@ def merge_two_items(base_item, item):
     return item
 
 
+# @timer_report('del_empty_keys')
 def del_empty_keys(d, values=[]):
     values += [None, '']
-    return {k: v for k, v in d.items() if v not in values}
+    return {k: v for k, v in viewitems(d) if v not in values}
 
 
 def find_dict_in_list(list_of_dicts, key, value):
@@ -57,7 +70,7 @@ def iter_props(items, property_name, infoproperties=None, func=None, **kwargs):
     if not items or not isinstance(items, list):
         return infoproperties
     for x, i in enumerate(items, start=1):
-        for k, v in kwargs.items():
+        for k, v in viewitems(kwargs):
             infoproperties['{}.{}.{}'.format(property_name, x, k)] = func(i.get(v)) if func else i.get(v)
         if x >= 10:
             break
@@ -68,7 +81,7 @@ def get_params(item, tmdb_type, tmdb_id=None, params=None, definition=None, base
     params = params or {}
     tmdb_id = tmdb_id or item.get('id')
     definition = definition or {'info': 'details', 'tmdb_type': '{tmdb_type}', 'tmdb_id': '{tmdb_id}'}
-    for k, v in definition.items():
+    for k, v in viewitems(definition):
         params[k] = v.format(tmdb_type=tmdb_type, tmdb_id=tmdb_id, base_tmdb_type=base_tmdb_type, **item)
     return del_empty_keys(params)  # TODO: Is this necessary??!
 

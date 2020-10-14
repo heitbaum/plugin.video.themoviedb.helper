@@ -22,6 +22,18 @@ _addonlogname = '[plugin.video.themoviedb.helper]\n'
 _debuglogging = ADDON.getSettingBool('debug_logging')
 
 
+def viewitems(obj, **kwargs):
+    """  from future
+    Function for iterating over dictionary items with the same set-like
+    behaviour on Py2.7 as on Py3.
+
+    Passes kwargs to method."""
+    func = getattr(obj, "viewitems", None)
+    if not func:
+        func = obj.items
+    return func(**kwargs)
+
+
 def md5hash(value):
     if sys.version_info.major != 3:
         return hashlib.md5(str(value)).hexdigest()

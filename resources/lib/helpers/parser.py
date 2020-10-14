@@ -1,5 +1,5 @@
 import sys
-from resources.lib.helpers.plugin import PLUGINPATH
+from resources.lib.helpers.plugin import PLUGINPATH, viewitems
 try:
     from urllib.parse import urlencode, unquote_plus  # Py3
 except ImportError:
@@ -74,7 +74,7 @@ def parse_paramstring(paramstring):
 def urlencode_params(*args, **kwargs):
     """ helper to assist with difference in urllib modules in PY2/3 """
     params = dict()
-    for k, v in kwargs.items():
+    for k, v in viewitems(kwargs):
         params[try_encode(k)] = try_encode(v)
     return urlencode(params)
 

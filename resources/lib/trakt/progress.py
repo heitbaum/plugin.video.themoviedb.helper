@@ -3,23 +3,24 @@ import resources.lib.helpers.cache as cache
 from resources.lib.helpers.cache import use_simple_cache
 from resources.lib.items.pages import PaginatedItems
 from resources.lib.trakt.items import TraktItems
-from resources.lib.trakt.decorators import is_authorized, use_activity_cache
+from resources.lib.trakt.decorators import is_authorized, use_activity_cache, use_lastupdated_cache
 from resources.lib.helpers.parser import try_int
 from resources.lib.helpers.timedate import convert_timestamp
+# from resources.lib.helpers.decorators import timer_report
 
 
 class _TraktProgress():
     @is_authorized
-    @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
     def get_inprogress_shows_list(self, page=1, limit=20, params=None, next_page=True):
-        response = TraktItems(self._get_inprogress_shows(), trakt_type='show').build_items()
+        response = TraktItems(self._get_inprogress_shows(), trakt_type='show').build_items(params_def=params)
         response = PaginatedItems(response['items'], page=page, limit=limit)
         if not next_page:
             return response.items
         return response.items + response.next_page
 
+    # Activity cache not needed here because already do it for subroutines
     @is_authorized
-    @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
+    # @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
     def _get_inprogress_shows(self):
         response = self.get_sync('watched', 'show')
         response = TraktItems(response).sort_items('watched', 'desc')
@@ -37,7 +38,10 @@ class _TraktProgress():
         aired_episodes = item.get('show', {}).get('aired_episodes', 0)
         if not aired_episodes:
             return
-        watch_episodes = self.get_episodes_watchcount(slug, 'slug', tvshow=item, count_progress=True)
+        watch_episodes = use_lastupdated_cache(
+            self.get_episodes_watchcount, slug, 'slug', tvshow=item, count_progress=True,
+            cache_name='TraktAPI.get_episodes_watchcount.response.slug.{}.True'.format(slug),
+            sync_info=item)
         if aired_episodes > watch_episodes:
             return item
 
@@ -97,32 +101,33 @@ class _TraktProgress():
         return hidden_items
 
     @is_authorized
-    @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
-    def get_upnext_list(self, unique_id, id_type=None, page=1, limit=20):
+    # @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
+    def get_upnext_list(self, unique_id, id_type=None, page=1):
         """ Gets the next episodes for a show that user should watch next """
         if id_type != 'slug':
             unique_id = self.get_id(unique_id, id_type, 'show', output_type='slug')
         if unique_id:
             showitem = self.get_details('show', unique_id)
             response = self.get_upnext_episodes(unique_id, showitem)
-            response = TraktItems(response, trakt_type='episode').configure_items(params_definition={
+            response = TraktItems(response, trakt_type='episode').configure_items(params_def={
                 'info': 'details', 'tmdb_type': '{tmdb_type}', 'tmdb_id': '{tmdb_id}',
                 'season': '{season}', 'episode': '{number}'})
-            response = PaginatedItems(response, page=page, limit=try_int(limit) or 20)
+            response = PaginatedItems(response['items'], page=page, limit=10)
             return response.items + response.next_page
 
     @is_authorized
-    def get_upnext_episodes_list(self, page=1, limit=20, sort_by_premiered=False):
+    def get_upnext_episodes_list(self, page=1, sort_by_premiered=False):
         """ Gets a list of episodes for in-progress shows that user should watch next """
         response = self._get_upnext_episodes_list(sort_by_premiered=sort_by_premiered)
-        response = TraktItems(response, trakt_type='episode').configure_items(params_definition={
+        response = TraktItems(response, trakt_type='episode').configure_items(params_def={
             'info': 'details', 'tmdb_type': '{tmdb_type}', 'tmdb_id': '{tmdb_id}',
             'season': '{season}', 'episode': '{number}'})
-        response = PaginatedItems(response['items'], page=page, limit=try_int(limit) or 20)
+        response = PaginatedItems(response['items'], page=page, limit=10)
         return response.items + response.next_page
 
+    # Activity cache not needed here because already do it for subroutines
     @is_authorized
-    @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
+    # @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
     def _get_upnext_episodes_list(self, sort_by_premiered=False):
         shows = self._get_inprogress_shows() or []
         items = [j for j in (self.get_upnext_episodes(
@@ -140,12 +145,15 @@ class _TraktProgress():
 
     @is_authorized
     @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
-    def get_show_progress(self, uid, hidden=False, specials=False, count_specials=False):
-        # TODO: Check last_activity stamp of show to see if we need to cache_refresh
-        return self.get_response_json('shows', uid, 'progress/watched') if uid else None
+    def get_show_progress(self, slug):
+        if not slug:
+            return
+        return use_lastupdated_cache(
+            self.get_response_json, 'shows', slug, 'progress/watched',
+            sync_info=self.get_sync('watched', 'show', 'slug').get(slug),
+            cache_name='TraktAPI.get_show_progress.response.{}'.format(slug))
 
     @is_authorized
-    @use_activity_cache('episodes', 'watched_at', cache_days=cache.CACHE_SHORT)
     def get_upnext_episodes(self, slug, show, get_single_episode=False):
         """
         Get the next episode(s) to watch for a show
@@ -161,8 +169,7 @@ class _TraktProgress():
         if get_single_episode:
             if not response.get('next_episode'):
                 return
-            item = {'show': show, 'episode': response['next_episode']}
-            return item
+            return {'show': show, 'episode': response['next_episode']}
         # For list of episodes we need to build them
         # Get show reset_at value
         reset_at = None
@@ -171,12 +178,12 @@ class _TraktProgress():
         # Get next episode items
         return [
             {'show': show, 'episode': {'number': episode.get('number'), 'season': season.get('number')}}
-            for season in response.get('seasons', []) for episode in season
+            for season in response.get('seasons', []) for episode in season.get('episodes', [])
             if not episode.get('completed')
             or (reset_at and convert_timestamp(episode.get('last_watched_at')) < reset_at)]
 
     @is_authorized
-    @use_activity_cache('movies', 'watched_at', cache_days=cache.CACHE_LONG)
+    # @use_activity_cache('movies', 'watched_at', cache_days=cache.CACHE_LONG)
     def get_movie_playcount(self, unique_id, id_type):
         return self.get_sync('watched', 'movie', id_type).get(unique_id, {}).get('plays')
 

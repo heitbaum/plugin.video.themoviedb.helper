@@ -11,6 +11,19 @@ LANGUAGES = [
     'sr-RS', 'sv-SE', 'ta-IN', 'te-IN', 'th-TH', 'tl-PH', 'tr-TR', 'uk-UA', 'vi-VN', 'zh-CN', 'zh-HK',
     'zh-TW', 'zu-ZA']
 
+TMDB_PARAMS_SEASONS = {
+    'info': 'details',
+    'tmdb_type': 'tv',
+    'tmdb_id': '{tmdb_id}',
+    'season': '{season_number}'}
+
+TMDB_PARAMS_EPISODES = {
+    'info': 'details',
+    'tmdb_type': 'tv',
+    'tmdb_id': '{tmdb_id}',
+    'season': '{season_number}',
+    'episode': '{episode_number}'}
+
 IMAGEPATH_ORIGINAL = 'https://image.tmdb.org/t/p/original'
 
 IMAGEPATH_POSTER = 'https://image.tmdb.org/t/p/w500'

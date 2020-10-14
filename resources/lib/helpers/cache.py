@@ -16,13 +16,13 @@ def format_name(cache_name, *args, **kwargs):
     # Define a type whitelist to avoiding adding non-basic types like classes to cache name
     permitted_types = [unicode, int, float, str, bool]
     for arg in args:
-        if not arg or type(arg) not in permitted_types:
+        if type(arg) not in permitted_types:
             continue
-        cache_name = u'{0}/{1}'.format(cache_name, arg) if cache_name else u'{}'.format(arg)
-    for key, value in kwargs.items():
-        if not value or type(value) not in permitted_types:
+        cache_name = u'{}/{}'.format(cache_name, arg) if cache_name else u'{}'.format(arg)
+    for key, value in sorted(kwargs.items()):
+        if type(value) not in permitted_types:
             continue
-        cache_name = u'{0}&{1}={2}'.format(cache_name, key, value) if cache_name else u'{0}={1}'.format(key, value)
+        cache_name = u'{}&{}={}'.format(cache_name, key, value) if cache_name else u'{}={}'.format(key, value)
     return cache_name
 
 
@@ -72,10 +72,9 @@ def use_cache(func, *args, **kwargs):
     my_cache = get_cache(cache_name) if not cache_refresh else None
     if my_cache:
         return my_cache
-    elif not cache_only:
+    if not cache_only:
         if headers:
             kwargs['headers'] = headers
-        # kodi_log('GET REQUEST: {}'.format(cache_name), 1)
         my_object = func(*args, **kwargs)
         return set_cache(my_object, cache_name, cache_days, force=cache_force, fallback=cache_fallback)
 

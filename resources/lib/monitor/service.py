@@ -28,14 +28,14 @@ class ServiceMonitor(object):
         try:
             self.listitem_monitor.get_listitem()
         except Exception as exc:
-            kodi_log(u'_on_listitem\n{}'.format(exc), 1)
+            kodi_log(u'_on_listitem\n{} {}'.format(Exception, exc), 1)
         self.xbmc_monitor.waitForAbort(0.3)
 
     def _on_scroll(self):
         try:
             self.listitem_monitor.clear_on_scroll()
         except Exception as exc:
-            kodi_log(u'_on_scroll\n{}'.format(exc), 1)
+            kodi_log(u'_on_scroll\n{}'.format(Exception, exc), 1)
         self.xbmc_monitor.waitForAbort(1)
 
     def _on_fullscreen(self):
@@ -58,7 +58,7 @@ class ServiceMonitor(object):
             if self.listitem_monitor.properties or self.listitem_monitor.index_properties:
                 return self.listitem_monitor.clear_properties()
         except Exception as exc:
-            kodi_log(u'_on_clear\n{}'.format(exc), 1)
+            kodi_log(u'_on_clear\n{}'.format(Exception, exc), 1)
         self.xbmc_monitor.waitForAbort(1)
 
     def _on_exit(self):

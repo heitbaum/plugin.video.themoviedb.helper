@@ -261,7 +261,7 @@ class ListItemMonitor(CommonMonitorFunctions):
             tmdb_type, self.imdb_id, self.query,
             year=self.year if tmdb_type == 'movie' else None,
             episode_year=self.year if tmdb_type == 'tv' else None)
-        details = self.tmdb_api.get_details(tmdb_type, tmdb_id, season=self.season, episode=self.episode)
+        details = self.tmdb_api.get_details(tmdb_type, tmdb_id, self.season, self.episode)
         if not details:
             self.clear_properties()
             return window.get_property('IsUpdating', clear_property=True)

@@ -2,18 +2,21 @@ import resources.lib.helpers.rpc as rpc
 from resources.lib.trakt.api import TraktAPI
 from resources.lib.tmdb.api import TMDb
 from resources.lib.helpers.parser import try_int
+# from resources.lib.helpers.plugin import kodi_log
+# from resources.lib.helpers.decorators import timer_report
 
 
 class ItemUtils(object):
-    def __init__(self, ftv_api=None, kodi_db=None):
+    def __init__(self, kodi_db=None, ftv_api=None, trakt_api=None, tmdb_api=None):
         self.trakt_watched_movies = {}
         self.trakt_watched_tvshows = {}
         self.ftv_api = ftv_api
         self.kodi_db = kodi_db
         self.kodi_db_tv = {}
-        self.trakt_api = TraktAPI()
-        self.tmdb_api = TMDb()
+        self.trakt_api = trakt_api or TraktAPI()
+        self.tmdb_api = tmdb_api or TMDb()
 
+    # @timer_report('get_ftv_details')
     def get_ftv_details(self, listitem):
         """ merges art with fanarttv art - must pass through fanarttv api object """
         if not self.ftv_api:
@@ -68,10 +71,10 @@ class ItemUtils(object):
 
     def get_tmdb_details(self, listitem, cache_only=True):
         return TMDb().get_details(
-            tmdb_type=listitem.get_tmdb_type(),
-            tmdb_id=listitem.unique_ids.get('tvshow.tmdb') if listitem.infolabels.get('mediatype') == 'episode' else listitem.unique_ids.get('tmdb'),
-            season=listitem.infolabels.get('season') if listitem.infolabels.get('mediatype') in ['season', 'episode'] else None,
-            episode=listitem.infolabels.get('episode') if listitem.infolabels.get('mediatype') == 'episode' else None,
+            listitem.get_tmdb_type(),
+            listitem.unique_ids.get('tvshow.tmdb') if listitem.infolabels.get('mediatype') == 'episode' else listitem.unique_ids.get('tmdb'),
+            listitem.infolabels.get('season') if listitem.infolabels.get('mediatype') in ['season', 'episode'] else None,
+            listitem.infolabels.get('episode') if listitem.infolabels.get('mediatype') == 'episode' else None,
             cache_only=cache_only)
 
     def get_kodi_parent_dbid(self, listitem):

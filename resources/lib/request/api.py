@@ -91,14 +91,13 @@ class RequestAPI(object):
         """
         request = self.req_api_url
         for arg in args:
-            if arg:  # Don't add empty args
-                request = u'{0}/{1}'.format(request, arg)
+            request = u'{}/{}'.format(request, arg)
         sep = '?' if '?' not in request else '&'
-        request = u'{0}{1}{2}'.format(request, sep, self.req_api_key) if self.req_api_key else request
-        for key, value in kwargs.items():
-            if value:  # Don't add empty kwargs
+        request = u'{}{}{}'.format(request, sep, self.req_api_key) if self.req_api_key else request
+        for key, value in sorted(kwargs.items()):
+            if value is not None:  # Don't add nonetype kwargs
                 sep = '?' if '?' not in request else ''
-                request = u'{0}{1}&{2}={3}'.format(request, sep, key, value)
+                request = u'{}{}&{}={}'.format(request, sep, key, value)
         return request
 
     def get_request_sc(self, *args, **kwargs):
