@@ -2,7 +2,7 @@ import os
 import xbmc
 import xbmcvfs
 import colorsys
-import resources.lib.helpers.window as window
+from resources.lib.helpers.window import get_property
 from resources.lib.helpers.plugin import kodi_log, md5hash
 from resources.lib.helpers.parser import try_int, try_float
 from resources.lib.helpers.fileutils import make_path
@@ -98,9 +98,9 @@ class ImageFunctions(Thread):
         if not self.save_prop or not self.func:
             return
         if not self.image:
-            window.get_property(self.save_prop, clear_property=True)
+            get_property(self.save_prop, clear_property=True)
             return
-        window.get_property(self.save_prop, self.func(self.image))
+        get_property(self.save_prop, self.func(self.image))
 
     def clamp(self, x):
         return max(0, min(x, 255))
@@ -213,16 +213,16 @@ class ImageFunctions(Thread):
         val_b = rgb_a[2]
 
         for i in range(steps):
-            if window.get_property(checkprop) != start_hex:
+            if get_property(checkprop) != start_hex:
                 return
             hex_value = self.rgb_to_hex(val_r, val_g, val_b)
-            window.get_property(propname, set_property=hex_value)
+            get_property(propname, set_property=hex_value)
             val_r = val_r + inc_r
             val_g = val_g + inc_g
             val_b = val_b + inc_b
             xbmc.Monitor().waitForAbort(0.05)
 
-        window.get_property(propname, set_property=end_hex)
+        get_property(propname, set_property=end_hex)
         return end_hex
 
     def colors(self, source):
@@ -246,22 +246,22 @@ class ImageFunctions(Thread):
 
             maincolor_propname = self.save_prop + '.Main'
             maincolor_propchek = self.save_prop + '.MainCheck'
-            maincolor_propvalu = window.get_property(maincolor_propname)
+            maincolor_propvalu = get_property(maincolor_propname)
             if not maincolor_propvalu:
-                window.get_property(maincolor_propname, set_property=maincolor_hex)
+                get_property(maincolor_propname, set_property=maincolor_hex)
             else:
-                window.get_property(maincolor_propchek, set_property=maincolor_propvalu)
+                get_property(maincolor_propchek, set_property=maincolor_propvalu)
                 thread_maincolor = Thread(target=self.set_prop_colorgradient, args=[
                     maincolor_propname, maincolor_propvalu, maincolor_hex, maincolor_propchek])
                 thread_maincolor.start()
 
             compcolor_propname = self.save_prop + '.Comp'
             compcolor_propchek = self.save_prop + '.CompCheck'
-            compcolor_propvalu = window.get_property(compcolor_propname)
+            compcolor_propvalu = get_property(compcolor_propname)
             if not compcolor_propvalu:
-                window.get_property(compcolor_propname, set_property=compcolor_hex)
+                get_property(compcolor_propname, set_property=compcolor_hex)
             else:
-                window.get_property(compcolor_propchek, set_property=compcolor_propvalu)
+                get_property(compcolor_propchek, set_property=compcolor_propvalu)
                 thread_compcolor = Thread(target=self.set_prop_colorgradient, args=[
                     compcolor_propname, compcolor_propvalu, compcolor_hex, compcolor_propchek])
                 thread_compcolor.start()

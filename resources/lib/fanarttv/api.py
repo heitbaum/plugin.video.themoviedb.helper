@@ -186,6 +186,7 @@ class FanartTV(RequestAPI):
                 ftv_type, ftv_id, ', '.join([k.capitalize() for k, v in viewitems(artwork) if v])))
         if artwork and container_refresh:
             xbmc.executebuiltin('Container.Refresh')
+            xbmc.executebuiltin('UpdateLibrary(video,/fake/path/to/force/refresh/on/home)')
         return artwork
 
     def get_artwork(self, ftv_id, ftv_type, artwork_type, get_list=False):
@@ -265,6 +266,7 @@ class FanartTV(RequestAPI):
                 cache_days=10000)
         if success and container_refresh:
             xbmc.executebuiltin('Container.Refresh')
+            xbmc.executebuiltin('UpdateLibrary(video,/fake/path/to/force/refresh/on/home)')
 
     def manage_artwork(self, ftv_id=None, ftv_type=None):
         if not ftv_id or not ftv_type:

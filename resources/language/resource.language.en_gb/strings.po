@@ -173,7 +173,7 @@ msgstr ""
 
 #: /resources/settings.xml
 msgctxt "#32035"
-msgid "Get unwatched episode counts for tvshows and seasons from Trakt (slow)"
+msgid "Get tvshow watched episode counts from Trakt"
 msgstr ""
 
 #: /resources/settings.xml
@@ -1185,7 +1185,7 @@ msgstr ""
 
 #: /resources/lib/listitem.py
 msgctxt "#32235"
-msgid "Browse related lists"
+msgid "Browse lists"
 msgstr ""
 
 #: /resources/lib/players.py
@@ -1485,7 +1485,7 @@ msgstr ""
 
 #: /resources/lib/script.py
 msgctxt "#32295"
-msgid "Trakt management"
+msgid "Trakt options"
 msgstr ""
 
 #: /resources/lib/script.py
@@ -1545,6 +1545,31 @@ msgstr ""
 #: /resources/lib/trakt/sync.py
 msgctxt "#32306"
 msgid "No comments found!"
+msgstr ""
+
+#: /resources/lib/request/api.py
+msgctxt "#32307"
+msgid "Suppressing retries for 1 minute"
+msgstr ""
+
+#: /resources/lib/request/api.py
+msgctxt "#32308"
+msgid "ConnectionError: {}"
+msgstr ""
+
+#: /addon.xml
+msgctxt "#32309"
+msgid "Browse sorted list"
+msgstr ""
+
+#: /resources/lib/window/manager.py
+msgctxt "#32310"
+msgid "TMDb ID for {} not found!"
+msgstr ""
+
+#: /resources/lib/player/players.py
+msgctxt "#32311"
+msgid "Clear default player"
 msgstr ""
 
 msgctxt "#30030"

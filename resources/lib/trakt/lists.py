@@ -1,4 +1,5 @@
 import random
+import resources.lib.helpers.rpc as rpc
 import resources.lib.helpers.plugin as plugin
 import resources.lib.helpers.constants as constants
 from resources.lib.helpers.plugin import ADDON
@@ -35,8 +36,8 @@ class TraktLists():
             trakt_type=plugin.convert_type(tmdb_type, plugin.TYPE_TRAKT),
             page=page,
             params=info_model.get('params'),
-            sort_by=info_model.get('sort_by', None),
-            sort_how=info_model.get('sort_how', None))
+            sort_by=kwargs.get('sort_by', None) or info_model.get('sort_by', None),
+            sort_how=kwargs.get('sort_how', None) or info_model.get('sort_how', None))
         self.tmdb_cache_only = False
         self.kodi_db = self.get_kodi_database(info_tmdb_type)
         self.library = plugin.convert_type(info_tmdb_type, plugin.TYPE_LIBRARY)
@@ -87,6 +88,8 @@ class TraktLists():
             params=None,
             sort_by='plays' if info == 'trakt_becausemostwatched' else 'watched',
             sort_how='desc')
+        if not watched_items:
+            return
         item = watched_items[random.randint(0, len(watched_items) - 1)]
         self.plugin_category = '{} {}'.format(ADDON.getLocalizedString(32288), item.get('label'))
         return self.list_tmdb(
@@ -120,13 +123,16 @@ class TraktLists():
         self.container_content = 'episodes'
         return items
 
-    def list_trakt_calendar(self, info, startdate, days, page=None, **kwargs):
+    def list_trakt_calendar(self, info, startdate, days, page=None, library=False, **kwargs):
+        kodi_db = rpc.get_kodi_library('tv') if library else None
         items = self.trakt_api.get_calendar_episodes_list(
             try_int(startdate),
             try_int(days),
+            kodi_db=kodi_db,
+            user=False if library else True,
             page=page)
+        self.kodi_db = kodi_db or self.get_kodi_database('tv')
         self.tmdb_cache_only = False
-        self.kodi_db = self.get_kodi_database('tv')
         self.library = 'video'
         self.container_content = 'episodes'
         return items

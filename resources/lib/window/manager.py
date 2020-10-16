@@ -2,7 +2,7 @@ import xbmc
 import xbmcgui
 import resources.lib.helpers.window as window
 from resources.lib.helpers.parser import try_int, try_decode
-from resources.lib.helpers.plugin import kodi_log
+from resources.lib.helpers.plugin import kodi_log, ADDON
 from resources.lib.helpers.decorators import busy_dialog
 from resources.lib.tmdb.api import TMDb
 
@@ -197,7 +197,8 @@ class WindowManager(_EventLoop):
             query = try_decode(query)
             tmdb_id = TMDb().get_tmdb_id_from_query(tmdb_type, query, header=query, use_details=True, auto_single=True)
         if not tmdb_id:
-            return  # TODO: Add notification none found
+            xbmcgui.Dialog().notification('TMDbHelper', ADDON.getLocalizedString(32310).format(query))
+            return
         url = 'plugin://plugin.video.themoviedb.helper/?info=details&tmdb_type={}&tmdb_id={}'
         url = url.format(tmdb_type, tmdb_id)
         return self.add_path(url)
@@ -222,8 +223,8 @@ class WindowManager(_EventLoop):
     def router(self):
         if self.params.get('add_path'):
             return self.add_path(self.params['add_path'])
-        if self.params.get('add_query') and self.params.get('type'):
-            return self.add_query(self.params['add_query'], self.params['type'])
+        if self.params.get('add_query') and self.params.get('tmdb_type'):
+            return self.add_query(self.params['add_query'], self.params['tmdb_type'])
 
         if self.params.get('close_dialog'):
             self.close_dialog()

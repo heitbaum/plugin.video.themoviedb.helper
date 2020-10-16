@@ -4,6 +4,7 @@ import resources.lib.helpers.plugin as plugin
 from resources.lib.tmdb.api import TMDb
 from resources.lib.helpers.plugin import PLUGINPATH, ADDONPATH, ADDON
 from resources.lib.helpers.setutils import merge_two_items
+from json import dumps
 
 
 def _build_basedir(item_type=None, basedir=None):
@@ -19,6 +20,8 @@ def _build_basedir(item_type=None, basedir=None):
             item['label'] = i.get('label', '').format(space=space, item_type=plural)
             item['params'] = i.get('params', {}).copy()
             item['params']['tmdb_type'] = i_type
+            if i.pop('sorting', False):
+                item.setdefault('infoproperties', {})['tmdbhelper.context.sorting'] = dumps(item['params'])
             item.pop('types', None)
             items.append(item)
     return items
@@ -157,7 +160,7 @@ def _get_basedir_random():
         {
             'label': '{} {{item_type}}{{space}}{}'.format(
                 xbmc.getLocalizedString(590), ADDON.getLocalizedString(32117)),
-            'types': ['movie', 'tv'],
+            'types': ['movie'],
             'params': {'info': 'random_keyword'},
             'path': PLUGINPATH,
             'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}},
@@ -239,12 +242,14 @@ def _get_basedir_trakt():
             'types': ['movie', 'tv'],
             'params': {'info': 'trakt_collection'},
             'path': PLUGINPATH,
+            'sorting': True,
             'art': {'thumb': '{}/resources/icons/trakt/watchlist.png'.format(ADDONPATH)}},
         {
             'label': '{{item_type}}{{space}}{}'.format(ADDON.getLocalizedString(32193)),
             'types': ['movie', 'tv'],
             'params': {'info': 'trakt_watchlist'},
             'path': PLUGINPATH,
+            'sorting': True,
             'art': {'thumb': '{}/resources/icons/trakt/watchlist.png'.format(ADDONPATH)}},
         {
             'label': '{}{{space}}{{item_type}}'.format(ADDON.getLocalizedString(32194)),
@@ -263,6 +268,7 @@ def _get_basedir_trakt():
             'types': ['movie', 'tv'],
             'params': {'info': 'trakt_inprogress'},
             'path': PLUGINPATH,
+            'sorting': True,
             'art': {'thumb': '{}/resources/icons/trakt/inprogress.png'.format(ADDONPATH)}},
         {
             'label': ADDON.getLocalizedString(32197),
@@ -415,7 +421,7 @@ def _get_basedir_tmdb():
         {
             'label': ADDON.getLocalizedString(32183),
             'types': ['tv'],
-            'params': {'info': 'library_nextaired'},
+            'params': {'info': 'dir_calendar_library'},
             'path': PLUGINPATH,
             'art': {'thumb': '{}/resources/icons/tmdb/airing.png'.format(ADDONPATH)}},
         {
@@ -632,6 +638,8 @@ class BaseDirLists():
             return _build_basedir(None, _get_basedir_random())
         if info == 'dir_calendar_trakt':
             return _get_basedir_calendar(info='trakt_calendar')
+        if info == 'dir_calendar_library':
+            return _get_basedir_calendar(info='library_nextaired')
 
     def list_details(self, tmdb_type, tmdb_id, season=None, episode=None, **kwargs):
         base_item = TMDb().get_details(tmdb_type, tmdb_id, season, episode)

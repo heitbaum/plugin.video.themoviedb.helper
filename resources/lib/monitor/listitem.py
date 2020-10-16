@@ -1,4 +1,5 @@
 import xbmc
+import resources.lib.helpers.rpc as rpc
 import resources.lib.helpers.window as window
 import resources.lib.monitor.common as monitor_common
 from resources.lib.monitor.common import CommonMonitorFunctions
@@ -266,11 +267,11 @@ class ListItemMonitor(CommonMonitorFunctions):
             self.clear_properties()
             return window.get_property('IsUpdating', clear_property=True)
 
-        # TODO: Need to update Next Aired with a shorter cache time than details
-        # if tmdb_type == 'tv' and details.get('infoproperties'):
-        #     details['infoproperties'].update(self.tmdb_api.get_tvshow_nextaired(tmdb_id))
+        # Need to update Next Aired with a shorter cache time than details
+        if tmdb_type == 'tv' and details.get('infoproperties'):
+            details['infoproperties'].update(self.tmdb_api.get_tvshow_nextaired(tmdb_id))
 
-        # TODO: Get our artwork properties
+        # Get our artwork properties
         if xbmc.getCondVisibility("!Skin.HasSetting(TMDbHelper.DisableArtwork)"):
             thread_artwork = Thread(target=self.process_artwork, args=[details, tmdb_type])
             thread_artwork.start()
@@ -283,10 +284,11 @@ class ListItemMonitor(CommonMonitorFunctions):
             self.clear_properties(ignore_keys=ignore_keys)
             return window.get_property('IsUpdating', clear_property=True)
 
-        # TODO: Get person stats
-        # if tmdb_type == 'person':
-        #     if xbmc.getCondVisibility("!Skin.HasSetting(TMDbHelper.DisablePersonStats)"):
-        #         details = self.get_kodi_person_stats(details)
+        # Get person library statistics
+        if tmdb_type == 'person' and details.get('infolabels', {}).get('title'):
+            if xbmc.getCondVisibility("!Skin.HasSetting(TMDbHelper.DisablePersonStats)"):
+                details.setdefault('infoproperties', {}).update(
+                    rpc.get_person_stats(details['infolabels']['title']) or {})
 
         # Get our item ratings
         if xbmc.getCondVisibility("!Skin.HasSetting(TMDbHelper.DisableRatings)"):

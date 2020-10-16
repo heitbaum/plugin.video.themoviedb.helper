@@ -2,7 +2,7 @@ import xbmcgui
 import datetime
 import resources.lib.helpers.plugin as plugin
 import resources.lib.helpers.cache as cache
-from resources.lib.tmdb.mapping import ItemMapper
+from resources.lib.tmdb.mapping import ItemMapper, get_episode_to_air
 from resources.lib.request.api import RequestAPI
 from resources.lib.helpers.plugin import viewitems
 from resources.lib.helpers.downloader import Downloader
@@ -116,6 +116,26 @@ class TMDb(RequestAPI):
                 break  # Stop once we have a item
         temp_list = temp_list if temp_list else 'null'
         return temp_list
+
+    def get_tvshow_nextaired(self, tmdb_id):
+        """ Get updated next aired data for tvshows using 24hr cache """
+        return cache.use_cache(
+            self._get_tvshow_nextaired, tmdb_id,
+            cache_name='TMDb.get_tvshow_nextaired.{}'.format(tmdb_id),
+            cache_days=cache.CACHE_SHORT)
+
+    def _get_tvshow_nextaired(self, tmdb_id):
+        if not tmdb_id:
+            return {}
+        response = self.get_response_json('tv', tmdb_id, language=self.req_language)
+        if not response:
+            return {}
+        infoproperties = {}
+        if response.get('next_episode_to_air'):
+            infoproperties.update(get_episode_to_air(response['next_episode_to_air'], 'next_aired'))
+        if response.get('last_episode_to_air'):
+            infoproperties.update(get_episode_to_air(response['last_episode_to_air'], 'last_aired'))
+        return {'infoproperties': infoproperties}
 
     def _get_details_request(self, tmdb_type, tmdb_id, season=None, episode=None):
         path_affix = []
@@ -276,8 +296,7 @@ class TMDb(RequestAPI):
             items.append({'next_page': try_int(response.get('page', 0)) + 1})
         return items
 
-    def get_discover_list(self, tmdb_type, with_id=True, with_separator='AND', **kwargs):
-        # TODO: Add with_id=False look-ups and with_separator translations
+    def get_discover_list(self, tmdb_type, **kwargs):
         # TODO: Check what regions etc we need to have
         path = 'discover/{}'.format(tmdb_type)
         return self.get_basic_list(path, tmdb_type, **kwargs)

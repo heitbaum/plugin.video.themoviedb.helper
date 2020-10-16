@@ -14,6 +14,30 @@ provider-name="jurialmunkey">
 <extension point="xbmc.python.pluginsource" library="plugin.py">
   <provides>video</provides>
 </extension>
+<extension point="kodi.context.item">
+  <menu id="kodi.core.main">
+    <item library="context-related.py">
+      <label>$ADDON[plugin.video.themoviedb.helper 32235]</label>
+      <visible>!String.IsEmpty(ListItem.Property(tmdbhelper.context.related))</visible>
+    </item>
+    <item library="context-trakt.py">
+      <label>$ADDON[plugin.video.themoviedb.helper 32295]</label>
+      <visible>!String.IsEmpty(ListItem.Property(tmdbhelper.context.trakt))</visible>
+    </item>
+    <item library="context-refresh.py">
+      <label>$ADDON[plugin.video.themoviedb.helper 32233]</label>
+      <visible>!String.IsEmpty(ListItem.Property(tmdbhelper.context.refresh))</visible>
+    </item>
+    <item library="context-artwork.py">
+      <label>$ADDON[plugin.video.themoviedb.helper 32222]</label>
+      <visible>!String.IsEmpty(ListItem.Property(tmdbhelper.context.artwork))</visible>
+    </item>
+    <item library="context-sorting.py">
+      <label>$ADDON[plugin.video.themoviedb.helper 32309]</label>
+      <visible>!String.IsEmpty(ListItem.Property(tmdbhelper.context.sorting))</visible>
+    </item>
+  </menu>
+</extension>
 <extension point="xbmc.addon.metadata">
   <summary lang="en_GB">TheMovieDb Helper - Now With Trakt Support!</summary>
   <summary lang="es_ES">TheMovieDb Helper - ¡Ahora con soporte para Trakt!</summary>

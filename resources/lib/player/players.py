@@ -64,11 +64,14 @@ class Players(object):
         with busy_dialog():
             self.players = self._get_players_from_file()
             self.details = self._get_item_details(tmdb_type, tmdb_id, season, episode)
-            self.item = self._get_detailed_item(tmdb_type, tmdb_id, season, episode)
+            self.item = self._get_detailed_item(tmdb_type, tmdb_id, season, episode) or {}
             self.dialog_players = self._get_players_for_dialog(tmdb_type)
             self.playerstring = self._get_playerstring(tmdb_type, tmdb_id, season, episode)
+            self.default_player = ADDON.getSettingString('default_player_movies') if tmdb_type == 'movie' else ADDON.getSettingString('default_player_episodes')
 
     def _get_playerstring(self, tmdb_type, tmdb_id, season=None, episode=None):
+        if not self.details:
+            return None
         playerstring = {}
         playerstring['tmdb_type'] = 'episode' if tmdb_type in ['episode', 'tv'] else 'movie'
         playerstring['tmdb_id'] = tmdb_id
@@ -220,8 +223,8 @@ class Players(object):
             item['name'] = u'{0} S{1:02d}E{2:02d}'.format(item.get('showname'), try_int(season), try_int(episode))
             item['season'] = season
             item['episode'] = episode
-            item['showpremiered'] = details.infoproperties.get('tvshow.premiered')  # TODO: Add tvshow infoproperties in TMDb module
-            item['showyear'] = details.infoproperties.get('tvshow.year')  # TODO: Add tvshow infoproperties in TMDb module
+            item['showpremiered'] = details.infoproperties.get('tvshow.premiered')
+            item['showyear'] = details.infoproperties.get('tvshow.year')
             item['eptmdb'] = details.unique_ids.get('tmdb')
             item['epimdb'] = details.unique_ids.get('imdb')
             item['eptrakt'] = details.unique_ids.get('trakt')
@@ -245,16 +248,21 @@ class Players(object):
                 item[key + '_url+'] = quote_plus(try_encode(value))
         return item
 
-    def _select_player(self, detailed=True):
+    def select_player(self, detailed=True, clear_player=False):
         """ Returns user selected player via dialog - detailed bool switches dialog style """
+        dialog_players = [] if not clear_player else [{
+            'name': ADDON.getLocalizedString(32311),
+            'plugin_name': 'plugin.video.themoviedb.helper',
+            'plugin_icon': '{}/resources/icons/other/kodi.png'.format(ADDONPATH)}]
+        dialog_players += self.dialog_players
         players = [ListItem(
             label=i.get('name'),
             label2='{} v{}'.format(i.get('plugin_name'), xbmcaddon.Addon(i.get('plugin_name', '')).getAddonInfo('version')),
-            art={'thumb': i.get('plugin_icon')}).get_listitem() for i in self.dialog_players]
+            art={'thumb': i.get('plugin_icon')}).get_listitem() for i in dialog_players]
         x = xbmcgui.Dialog().select(ADDON.getLocalizedString(32042), players, useDetails=detailed)
         if x == -1:
             return {}
-        player = self.dialog_players[x]
+        player = dialog_players[x]
         player['idx'] = x
         return player
 
@@ -394,8 +402,21 @@ class Players(object):
         if isinstance(actions, unicode) or isinstance(actions, str):
             return (string_format_map(actions, self.item), player.get('is_folder', False))  # Single path so return it formatted
 
-    def _get_resolved_path(self, player=None):
-        player = player or self._select_player()
+    def get_default_player(self):
+        """ Returns default player """
+        all_players = [u'{} {}'.format(i.get('file'), i.get('mode')) for i in self.dialog_players]
+        try:
+            x = all_players.index(self.default_player)
+        except Exception:
+            return
+        player = self.dialog_players[x]
+        player['idx'] = x
+        return player
+
+    def _get_resolved_path(self, player=None, allow_default=False):
+        if not player and allow_default and self.default_player:
+            player = self.get_default_player()
+        player = player or self.select_player()
         if not player:
             return
         path = self._get_path_from_player(player)
@@ -410,7 +431,7 @@ class Players(object):
         if not self.item:
             return
         window.get_property('PlayerInfoString', clear_property=True)
-        path = self._get_resolved_path()
+        path = self._get_resolved_path(allow_default=True)
         if return_listitem:
             self.details.path = path[0] if path else None
             self.details.params = {}
@@ -471,12 +492,14 @@ class Players(object):
         # elif not is_folder:  # Uncomment to send url to PlayMedia rather than xbmc.Player()
         #     action = u'PlayMedia(\"{0}\")'.format(path)
 
-        if action:
-            xbmc.executebuiltin(try_encode(try_decode(action)))
-        if not action and not is_folder:
-            xbmc.Player().play(path, listitem)
-
         if not is_folder and self.playerstring:
             window.get_property('PlayerInfoString', set_property=self.playerstring)
 
-        return path
+        # Wait a moment because sometimes Kodi crashes if we call the plugin to play too quickly!!!
+        with busy_dialog():
+            xbmc.Monitor().waitForAbort(1)
+
+        if action:
+            xbmc.executebuiltin(try_encode(try_decode(action)))
+        elif not is_folder:
+            xbmc.Player().play(path, listitem)

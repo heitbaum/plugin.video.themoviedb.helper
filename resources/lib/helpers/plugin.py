@@ -22,6 +22,14 @@ _addonlogname = '[plugin.video.themoviedb.helper]\n'
 _debuglogging = ADDON.getSettingBool('debug_logging')
 
 
+def reconfigure_legacy_params(**kwargs):
+    if 'type' in kwargs:
+        kwargs['tmdb_type'] = kwargs.pop('type')
+    if kwargs.get('tmdb_type') in ['season', 'episode']:
+        kwargs['tmdb_type'] = 'tv'
+    return kwargs
+
+
 def viewitems(obj, **kwargs):
     """  from future
     Function for iterating over dictionary items with the same set-like

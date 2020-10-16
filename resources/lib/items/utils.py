@@ -2,7 +2,7 @@ import resources.lib.helpers.rpc as rpc
 from resources.lib.trakt.api import TraktAPI
 from resources.lib.tmdb.api import TMDb
 from resources.lib.helpers.parser import try_int
-# from resources.lib.helpers.plugin import kodi_log
+from resources.lib.helpers.plugin import ADDON
 # from resources.lib.helpers.decorators import timer_report
 
 
@@ -15,6 +15,7 @@ class ItemUtils(object):
         self.kodi_db_tv = {}
         self.trakt_api = trakt_api or TraktAPI()
         self.tmdb_api = tmdb_api or TMDb()
+        self.trakt_watchedindicators = ADDON.getSettingBool('trakt_watchedindicators')
 
     # @timer_report('get_ftv_details')
     def get_ftv_details(self, listitem):
@@ -128,9 +129,13 @@ class ItemUtils(object):
         dbid = self.kodi_db_tv[tv_dbid].get_info('dbid', season=season, episode=episode)
         if not dbid:
             return
-        return rpc.get_season_details(dbid) if is_season else rpc.get_episode_details(dbid)
+        details = rpc.get_season_details(dbid) if is_season else rpc.get_episode_details(dbid)
+        details['infoproperties']['tvshow.dbid'] = tv_dbid
+        return details
 
     def get_playcount_from_trakt(self, listitem):
+        if not self.trakt_watchedindicators:
+            return
         if listitem.infolabels.get('mediatype') == 'movie':
             return self.trakt_api.get_movie_playcount(
                 id_type='tmdb',

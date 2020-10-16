@@ -17,9 +17,9 @@ from resources.lib.tmdb.lists import TMDbLists
 from resources.lib.trakt.lists import TraktLists
 from resources.lib.tmdb.search import SearchLists
 from resources.lib.tmdb.discover import UserDiscoverLists
-from resources.lib.helpers.parser import try_decode, parse_paramstring
+from resources.lib.helpers.parser import try_decode, parse_paramstring, try_int
 from resources.lib.helpers.setutils import split_items, random_from_list, merge_two_dicts
-from resources.lib.helpers.decorators import timer_report
+# from resources.lib.helpers.decorators import timer_report
 
 
 def filtered_item(item, key, value, exclude=False):
@@ -35,7 +35,6 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         self.paramstring = try_decode(sys.argv[2][1:])
         self.params = parse_paramstring(sys.argv[2][1:])
         self.parent_params = self.params
-        self.allow_pagination = True
         self.update_listing = False
         self.plugin_category = ''
         self.container_content = ''
@@ -45,35 +44,46 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         self.kodi_db = None
         self.library = None
         self.tmdb_cache_only = True
-        self.ftv_lookup = ADDON.getSettingBool('fanarttv_lookup')
-        self.ftv_widget_lookup = ADDON.getSettingBool('widget_fanarttv_lookup')
-        self.is_widget = True if self.params.get('widget') else False
         self.trakt_api = TraktAPI()
         self.tmdb_api = TMDb()
+        self.is_widget = True if self.params.pop('widget', '').lower() == 'true' else False
+        self.hide_watched = ADDON.getSettingBool('widgets_hidewatched') if self.is_widget else False
+        self.ftv_forced_lookup = self.params.pop('fanarttv', '').lower()
+        self.filter_key = self.params.pop('filter_key', None)
+        self.filter_value = split_items(self.params.pop('filter_value', None))[0]
+        self.exclude_key = self.params.pop('exclude_key', None)
+        self.exclude_value = split_items(self.params.pop('exclude_value', None))[0]
+        self.pagination = self.pagination_is_allowed()
+        self.params = plugin.reconfigure_legacy_params(**self.params)
 
-        # Filters and Exclusions
-        self.filter_key = self.params.get('filter_key', None)
-        self.filter_value = split_items(self.params.get('filter_value', None))[0]
-        self.exclude_key = self.params.get('exclude_key', None)
-        self.exclude_value = split_items(self.params.get('exclude_value', None))[0]
+    def pagination_is_allowed(self):
+        if self.params.pop('nextpage', '').lower() == 'false':
+            return False
+        if self.is_widget and not ADDON.getSettingBool('widgets_nextpage'):
+            return False
+        return True
 
-        # Legacy code clean-up for back compatibility
-        # TODO: Maybe only necessary for player code??
-        if 'type' in self.params:
-            self.params['tmdb_type'] = self.params.pop('type')
-        if self.params.get('tmdb_type') in ['season', 'episode']:
-            self.params['tmdb_type'] = 'tv'
+    def ftv_is_cache_only(self):
+        if self.ftv_forced_lookup == 'true':
+            return False
+        if self.ftv_forced_lookup == 'false':
+            return True
+        if self.is_widget and ADDON.getSettingBool('widget_fanarttv_lookup'):
+            return False
+        if not self.is_widget and ADDON.getSettingBool('fanarttv_lookup'):
+            return False
+        return True
 
-    @timer_report('add_items')
-    def add_items(self, items=None, allow_pagination=True, parent_params=None, kodi_db=None, tmdb_cache_only=True):
+    # @timer_report('add_items')
+    def add_items(self, items=None, pagination=True, parent_params=None, kodi_db=None, tmdb_cache_only=True):
         if not items:
             return
         check_is_aired = parent_params.get('info') not in constants.NO_LABEL_FORMATTING
         listitem_utils = ItemUtils(
             kodi_db=self.kodi_db, trakt_api=self.trakt_api, tmdb_api=self.tmdb_api,
-            ftv_api=FanartTV(cache_only=self.ftv_is_cache_only(is_widget=self.is_widget)))
+            ftv_api=FanartTV(cache_only=self.ftv_is_cache_only()))
         for i in items:
-            if not allow_pagination and 'next_page' in i:
+            if not pagination and 'next_page' in i:
                 continue
             if self.item_is_excluded(i):
                 continue
@@ -85,9 +95,11 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             listitem.set_details(details=listitem_utils.get_ftv_details(listitem), reverse=True)  # Slow when not cache only
             listitem.set_details(details=listitem_utils.get_kodi_details(listitem), reverse=True)  # Quick because local db
             listitem.set_playcount(playcount=listitem_utils.get_playcount_from_trakt(listitem))  # Quick because of agressive caching of Trakt object and pre-emptive dict comprehension
+            if self.hide_watched and try_int(listitem.infolabels.get('playcount')) != 0:
+                continue
             listitem.set_standard_context_menu()  # Set the context menu items
             listitem.set_unique_ids_to_infoproperties()  # Add unique ids to properties so accessible in skins
-            listitem.set_params_info_reroute()  # Reroute details to proper end point
+            listitem.set_params_info_reroute(self.ftv_forced_lookup)  # Reroute details to proper end point
             listitem.set_params_to_infoproperties(self.plugin_category)  # Set path params to properties for use in skins
             xbmcplugin.addDirectoryItem(
                 handle=self.handle,
@@ -109,13 +121,6 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         xbmcplugin.setContent(self.handle, container_content)  # Container.Content
         xbmcplugin.endOfDirectory(self.handle, updateListing=update_listing)
 
-    def ftv_is_cache_only(self, is_widget=False):
-        if is_widget and self.ftv_widget_lookup:
-            return False
-        if not is_widget and self.ftv_lookup:
-            return False
-        return True
-
     def item_is_excluded(self, item):
         if self.filter_key and self.filter_value:
             if self.filter_key in item.get('infolabels', {}):
@@ -133,7 +138,8 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
                     return True
 
     def get_kodi_database(self, tmdb_type):
-        return rpc.get_kodi_library(tmdb_type)
+        if ADDON.getSettingBool('local_db'):
+            return rpc.get_kodi_library(tmdb_type)
 
     def get_container_content(self, tmdb_type, season=None, episode=None):
         if tmdb_type == 'tv' and season and episode:
@@ -157,7 +163,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         self.plugin_category = item.get('label')
         return self.get_items(**item.get('params', {}))
 
-    @timer_report('get_items')
+    # @timer_report('get_items')
     def get_items(self, **kwargs):
         info = kwargs.get('info')
         if info == 'pass':
@@ -184,6 +190,8 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             return self.list_nextepisodes(**kwargs)
         if info == 'trakt_calendar':
             return self.list_trakt_calendar(**kwargs)
+        if info == 'library_nextaired':
+            return self.list_trakt_calendar(library=True, **kwargs)
         if info in constants.TRAKT_LIST_OF_LISTS:
             return self.list_lists(**kwargs)
         if info in constants.RANDOMISED_LISTS:
@@ -192,7 +200,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             return self.list_randomised_trakt(**kwargs)
 
         if not kwargs.get('tmdb_id'):
-            kwargs['tmdb_id'] = TMDb().get_tmdb_id(**kwargs)
+            kwargs['tmdb_id'] = self.tmdb_api.get_tmdb_id(**kwargs)
 
         if info == 'details':
             return self.list_details(**kwargs)
@@ -220,7 +228,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             return
         self.add_items(
             items,
-            allow_pagination=self.allow_pagination,
+            pagination=self.pagination,
             parent_params=self.parent_params,
             kodi_db=self.kodi_db,
             tmdb_cache_only=self.tmdb_cache_only)
@@ -234,7 +242,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         if self.container_refresh:
             xbmc.executebuiltin('Container.Refresh')
 
-    def play_external(self):
+    def play_external(self, **kwargs):
         """
         Kodi does 5x retries to resolve url if isPlayable property is set
         Since our external players might not return resolvable files we don't use this method
@@ -246,28 +254,32 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         Mention of fixes in Matrix that should solve this issue so we won't need this hack anymore
         """
 
-        if self.params.get('islocal', False):
+        if kwargs.get('islocal', False):
             xbmcplugin.setResolvedUrl(self.handle, True, ListItem(
                 path='{}/resources/poster.png'.format(ADDONPATH)).get_listitem())
-        if not self.params.get('tmdb_id'):
-            self.params['tmdb_id'] = TMDb().get_tmdb_id(**self.params)
-        # self.params['play'] = self.params.pop('tmdb_type')
-        # self.params.pop('info', None)
-        # url = 'plugin.video.themoviedb.helper'
-        # for k, v in viewitems(self.params):
-        #     url = '{},{}={}'.format(url, k, v)
-        # xbmc.executebuiltin('RunScript({})'.format(url))
-        Players(**self.params).play()
+        if not kwargs.get('tmdb_id'):
+            kwargs['tmdb_id'] = self.tmdb_api.get_tmdb_id(**kwargs)
 
-    def context_related(self):
-        if not self.params.get('tmdb_id'):
-            self.params['tmdb_id'] = TMDb().get_tmdb_id(**self.params)
-        self.params['container_update'] = True
-        script.related_lists(**self.params)
+        # Direct method: occassionally causes an unidentified crash so disabled for time being.
+        return Players(**kwargs).play()
+
+        # Shelling out to script method
+        # kwargs.pop('info', None)
+        # kwargs['play'] = kwargs.pop('tmdb_type')
+        # url = 'plugin.video.themoviedb.helper'
+        # for k, v in viewitems(kwargs):
+        #     url = '{},{}={}'.format(url, k, v)
+        # return xbmc.executebuiltin('RunScript({})'.format(url))
+
+    def context_related(self, **kwargs):
+        if not kwargs.get('tmdb_id'):
+            kwargs['tmdb_id'] = self.tmdb_api.get_tmdb_id(**kwargs)
+        kwargs['container_update'] = True
+        script.related_lists(**kwargs)
 
     def router(self):
         if self.params.get('info') == 'play':
-            return self.play_external()
+            return self.play_external(**self.params)
         if self.params.get('info') == 'related':
-            return self.context_related()
+            return self.context_related(**self.params)
         return self.get_directory()

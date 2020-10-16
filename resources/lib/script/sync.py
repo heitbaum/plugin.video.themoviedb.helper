@@ -124,6 +124,7 @@ class SyncItem():
                 ADDON.getLocalizedString(32297).format(
                     name, self.trakt_type, self.id_type.upper(), self.unique_id))
             xbmc.executebuiltin('Container.Refresh')
+            xbmc.executebuiltin('UpdateLibrary(video,/fake/path/to/force/refresh/on/home)')
             return
         xbmcgui.Dialog().ok(
             ADDON.getLocalizedString(32295),

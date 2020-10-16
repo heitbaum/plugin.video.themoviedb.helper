@@ -7,13 +7,12 @@ import resources.lib.helpers.window as window
 from resources.lib.helpers.cache import use_simple_cache
 from json import loads, dumps
 from resources.lib.request.api import RequestAPI
-from resources.lib.helpers.plugin import ADDON, PLUGINPATH, kodi_log, viewitems
+from resources.lib.helpers.plugin import ADDON, kodi_log, viewitems
 from resources.lib.items.pages import PaginatedItems
 from resources.lib.trakt.items import TraktItems
 from resources.lib.trakt.decorators import is_authorized, use_activity_cache
 from resources.lib.trakt.progress import _TraktProgress
 from resources.lib.helpers.parser import try_int
-from resources.lib.helpers.timedate import date_in_range, get_region_date, convert_timestamp
 # from resources.lib.helpers.decorators import timer_report
 
 API_URL = 'https://api.trakt.tv/'
@@ -24,7 +23,7 @@ CLIENT_SECRET = '15119384341d9a61c751d8d515acbc0dd801001d4ebe85d3eef9885df80ee4d
 class _TraktLists():
     @use_simple_cache(cache_days=cache.CACHE_SHORT)
     def get_sorted_list(self, path, sort_by=None, sort_how=None, extended=None, trakt_type=None, permitted_types=None, cache_refresh=False):
-        response = self.get_response(path, extended=extended, limit=0)
+        response = self.get_response(path, extended=extended, limit=4095)
         if not response:
             return
         return TraktItems(response.json(), headers=response.headers).build_items(
@@ -88,6 +87,8 @@ class _TraktLists():
 
     def get_sync_list(self, sync_type, trakt_type, page=1, limit=20, params=None, sort_by=None, sort_how=None, next_page=True):
         response = self._get_sync_list(sync_type, trakt_type, sort_by=sort_by, sort_how=sort_how)
+        if not response:
+            return
         response = PaginatedItems(items=response['items'], page=page, limit=limit)
         return response.items if not next_page else response.items + response.next_page
 
@@ -115,76 +116,15 @@ class _TraktLists():
                 'trakt': i.get('ids', {}).get('trakt'),
                 'slug': i.get('ids', {}).get('slug'),
                 'user': i.get('user', {}).get('ids', {}).get('slug')}
-            path = '{}?info={info}&list_slug={list_slug}&user_slug={user_slug}'.format(PLUGINPATH, **item['params'])
-            item['context_menu'] = [
-                ('{}: {}'.format(ADDON.getLocalizedString(32287), ADDON.getLocalizedString(32286)),
-                    'Container.Update({}&sort_by=rank&sort_how=asc)'.format(path)),
-                ('{}: {}'.format(ADDON.getLocalizedString(32287), ADDON.getLocalizedString(32106)),
-                    'Container.Update({}&sort_by=added&sort_how=desc)'.format(path)),
-                ('{}: {}'.format(ADDON.getLocalizedString(32287), xbmc.getLocalizedString(369)),
-                    'Container.Update({}&sort_by=title&sort_how=asc)'.format(path)),
-                ('{}: {}'.format(ADDON.getLocalizedString(32287), xbmc.getLocalizedString(345)),
-                    'Container.Update({}&sort_by=year&sort_how=desc)'.format(path)),
-                ('{}: {}'.format(ADDON.getLocalizedString(32287), xbmc.getLocalizedString(590)),
-                    'Container.Update({}&sort_by=random)'.format(path))]
+            item['infoproperties']['tmdbhelper.context.sorting'] = dumps(item['params'])
+            add_library_params = 'user_list={list_slug},user_slug={user_slug}'.format(**item['params'])
+            item['context_menu'] = [(
+                xbmc.getLocalizedString(20444),
+                'Runscript(plugin.video.themoviedb.helper,{})'.format(add_library_params))]
             items.append(item)
         if not next_page:
             return items
         return items + pages.get_next_page(response.headers)
-
-    def _get_calendar_episodes_list(self, startdate=0, days=1):
-        response = self.get_calendar_episodes(startdate=startdate, days=days)
-        if not response:
-            return
-
-        # Reverse items for date ranges in past
-        traktitems = reversed(response) if startdate < -1 else response
-
-        items = []
-        for i in traktitems:
-            # Do some timezone conversion so we check that we're in the date range for our timezone
-            if not date_in_range(i.get('first_aired'), utc_convert=True, start_date=startdate, days=days):
-                continue
-            air_date = convert_timestamp(i.get('first_aired'), utc_convert=True)
-            item = {}
-            item['label'] = i.get('episode', {}).get('title')
-            item['infolabels'] = {
-                'mediatype': 'episode',
-                'premiered': air_date.strftime('%Y-%m-%d'),
-                'year': air_date.strftime('%Y'),
-                'title': item['label'],
-                'episode': i.get('episode', {}).get('number'),
-                'season': i.get('episode', {}).get('season'),
-                'tvshowtitle': i.get('show', {}).get('title'),
-                'duration': try_int(i.get('episode', {}).get('runtime', 0)) * 60,
-                'plot': i.get('episode', {}).get('overview'),
-                'mpaa': i.get('show', {}).get('certification')}
-            item['infoproperties'] = {
-                'air_date': get_region_date(air_date, 'datelong'),
-                'air_time': get_region_date(air_date, 'time'),
-                'air_day': air_date.strftime('%A'),
-                'air_day_short': air_date.strftime('%a'),
-                'air_date_short': air_date.strftime('%d %b')}
-            item['unique_ids'] = {'tvshow.{}'.format(k): v for k, v in viewitems(i.get('show', {}).get('ids', {}))}
-            item['params'] = {
-                'info': 'details',
-                'tmdb_type': 'tv',
-                'tmdb_id': i.get('show', {}).get('ids', {}).get('tmdb'),
-                'episode': i.get('episode', {}).get('number'),
-                'season': i.get('episode', {}).get('season')}
-            items.append(item)
-        return items
-
-    def get_calendar_episodes_list(self, startdate=0, days=1, page=1, limit=20):
-        cache_name = 'trakt.calendar.episodes.{}.{}'.format(startdate, days)
-        response_items = cache.use_cache(
-            self._get_calendar_episodes_list, startdate, days,
-            cache_name=cache_name,
-            cache_refresh=True,
-            cache_days=1)
-        response = PaginatedItems(response_items, page=page, limit=limit)
-        if response and response.items:
-            return response.items + response.next_page
 
 
 class _TraktSync():
@@ -241,7 +181,7 @@ class _TraktSync():
     def _get_sync_response(self, path, extended=None):
         """ Quick sub-cache routine to avoid recalling full sync list if we also want to quicklist it """
         sync_name = 'sync_response.{}.{}'.format(path, extended)
-        self.sync[sync_name] = self.sync.get(sync_name) or self.get_response_json(path, extended=extended, limit=0)
+        self.sync[sync_name] = self.sync.get(sync_name) or self.get_response_json(path, extended=extended)
         return self.sync[sync_name]
 
     @is_authorized
@@ -334,7 +274,7 @@ class _TraktSync():
 
 
 class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
-    def __init__(self):
+    def __init__(self, force=False):
         super(TraktAPI, self).__init__(req_api_url=API_URL, req_api_name='Trakt')
         self.authorization = ''
         self.attempted_login = False
@@ -346,7 +286,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
         self.last_activities = {}
         self.sync_activities = {}
         self.sync = {}
-        self.authorize()
+        self.login() if force else self.authorize()
 
     def authorize(self, login=False):
         # Already got authorization so return credentials
@@ -375,7 +315,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
             kodi_log('Checking Trakt authorization', 1)
             response = self.get_simple_api_request('https://api.trakt.tv/sync/last_activities', headers=self.headers)
             # 401 is unauthorized error code so let's try refreshing the token
-            if response.status_code == 401:
+            if not response or response.status_code == 401:
                 kodi_log('Trakt unauthorized!', 1)
                 self.authorization = self.refresh_token()
             # Authorization confirmed so let's set a window property for future reference in this session
@@ -400,7 +340,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
             return
 
         if token:
-            response = self.get_api_request('https://api.trakt.tv/oauth/revoke', dictify=False, postdata={
+            response = self.get_api_request('https://api.trakt.tv/oauth/revoke', postdata={
                 'token': token.get('access_token', ''),
                 'client_id': self.client_id,
                 'client_secret': self.client_secret})
@@ -415,7 +355,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
         xbmcgui.Dialog().ok(ADDON.getLocalizedString(32212), msg)
 
     def login(self):
-        self.code = self.get_api_request('https://api.trakt.tv/oauth/device/code', postdata={'client_id': self.client_id})
+        self.code = self.get_api_request_json('https://api.trakt.tv/oauth/device/code', postdata={'client_id': self.client_id})
         if not self.code.get('user_code') or not self.code.get('device_code'):
             return  # TODO: DIALOG: Authentication Error
         self.progress = 0
@@ -439,7 +379,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
             'client_secret': self.client_secret,
             'redirect_uri': 'urn:ietf:wg:oauth:2.0:oob',
             'grant_type': 'refresh_token'}
-        self.authorization = self.get_api_request('https://api.trakt.tv/oauth/token', postdata=postdata)
+        self.authorization = self.get_api_request_json('https://api.trakt.tv/oauth/token', postdata=postdata)
         if not self.authorization or not self.authorization.get('access_token'):
             kodi_log('Failed to refresh Trakt token!', 1)
             return
@@ -454,7 +394,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
         if self.expires_in <= self.progress:
             self.on_expired()
             return
-        self.authorization = self.get_api_request('https://api.trakt.tv/oauth/device/token', postdata={'code': self.code.get('device_code'), 'client_id': self.client_id, 'client_secret': self.client_secret})
+        self.authorization = self.get_api_request_json('https://api.trakt.tv/oauth/device/token', postdata={'code': self.code.get('device_code'), 'client_id': self.client_id, 'client_secret': self.client_secret})
         if self.authorization:
             self.on_authenticated()
             return
@@ -539,7 +479,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
     @use_simple_cache(cache_days=cache.CACHE_SHORT)
     def get_imdb_top250(self, id_type=None):
         path = 'users/justin/lists/imdb-top-rated-movies/items'
-        response = self.get_response(path, limit=0)
+        response = self.get_response(path, limit=4095)
         sorted_items = TraktItems(response.json() if response else []).sort_items('rank', 'asc') or []
         return [i['movie']['ids'][id_type] for i in sorted_items]
 

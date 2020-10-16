@@ -514,10 +514,6 @@ class ItemMapper(_ItemMapper):
             'deathday': ('infoproperties', 'deathday')
         }
 
-    """ TODO functions
-    infoproperties['age'] = age_difference(item.get('birthday'), item.get('deathday'))
-    """
-
     def get_info(self, info_item, tmdb_type, base_item=None, **kwargs):
         item = self.get_item()
         item = self.map_item(item, info_item)

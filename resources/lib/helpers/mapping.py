@@ -1,6 +1,7 @@
 from resources.lib.helpers.parser import try_type
 import resources.lib.helpers.plugin as plugin
 from resources.lib.helpers.plugin import viewitems
+from resources.lib.helpers.timedate import age_difference
 
 UPDATE_BASEKEY = 1
 
@@ -12,6 +13,8 @@ def set_show(item, base_item=None):
         {'tvshow.{}'.format(k): v for k, v in viewitems(base_item.get('art', {}))})
     item['unique_ids'].update(
         {'tvshow.{}'.format(k): v for k, v in viewitems(base_item.get('unique_ids', {}))})
+    item['infoproperties'].update(
+        {'tvshow.{}'.format(k): v for k, v in viewitems(base_item.get('infolabels', {})) if type(v) in [str, int]})
     item['infolabels']['tvshowtitle'] = base_item['infolabels'].get('title')
     item['unique_ids']['tmdb'] = item['unique_ids'].get('tvshow.tmdb')
     return item
@@ -39,10 +42,16 @@ class _ItemMapper(object):
 
     def finalise(self, item, tmdb_type):
         item['label'] = item['infolabels'].get('title')
+        item['infoproperties']['tmdb_type'] = tmdb_type
         item['infolabels']['mediatype'] = plugin.convert_type(tmdb_type, plugin.TYPE_DB)
+        item['infoproperties']['dbtype'] = plugin.convert_type(tmdb_type, plugin.TYPE_DB)
         item['art']['thumb'] = item['art'].get('thumb') or item['art'].get('poster')
         for k, v in viewitems(item['unique_ids']):
             item['infoproperties']['{}_id'.format(k)] = v
+        if item['infoproperties'].get('birthday'):
+            item['infoproperties']['age'] = age_difference(
+                item['infoproperties']['birthday'],
+                item['infoproperties'].get('deathday'))
         return item
 
     def map_item(self, item, i):

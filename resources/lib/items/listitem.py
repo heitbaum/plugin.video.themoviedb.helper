@@ -1,10 +1,12 @@
 import xbmc
 import xbmcgui
+import resources.lib.helpers.constants as constants
 from resources.lib.helpers.plugin import ADDON, ADDONPATH, PLUGINPATH, kodi_log, viewitems
 from resources.lib.helpers.parser import try_int, encode_url
 from resources.lib.helpers.timedate import is_future_timestamp
 from resources.lib.helpers.setutils import merge_two_dicts
-from resources.lib.helpers.decorators import timer_report
+from json import dumps
+# from resources.lib.helpers.decorators import timer_report
 
 
 class ListItem(object):
@@ -104,55 +106,47 @@ class ListItem(object):
             kodi_log(u'Error: {}'.format(exc), 1)
 
     def _context_item_get_ftv_artwork(self):
-        ftv_id = self.get_ftv_id()
-        ftv_type = self.get_ftv_type()
+        ftv_id, ftv_type = self.get_ftv_id(), self.get_ftv_type()
         if not ftv_type or not ftv_id:
             return []
-        path = 'manage_artwork,ftv_type={},ftv_id={}'.format(ftv_type, ftv_id)
-        return [(ADDON.getLocalizedString(32222), 'RunScript(plugin.video.themoviedb.helper,{})'.format(path))]
+        return [('tmdbhelper.context.artwork', dumps({'ftv_type': ftv_type, 'ftv_id': ftv_id}))]
 
     def _context_item_refresh_details(self):
-        tmdb_id = self.get_tmdb_id()
-        tmdb_type = self.get_tmdb_type()
+        tmdb_id, tmdb_type = self.get_tmdb_id(), self.get_tmdb_type()
         if not tmdb_type or not tmdb_id:
             return []
-        path = 'refresh_details,tmdb_type={},tmdb_id={}'.format(tmdb_type, tmdb_id)
-        return [(ADDON.getLocalizedString(32233), 'RunScript(plugin.video.themoviedb.helper,{})'.format(path))]
+        return [('tmdbhelper.context.refresh', dumps({'tmdb_type': tmdb_type, 'tmdb_id': tmdb_id}))]
 
     def _context_item_related_lists(self):
-        tmdb_id = self.get_tmdb_id()
-        tmdb_type = self.get_tmdb_type()
+        tmdb_id, tmdb_type = self.get_tmdb_id(), self.get_tmdb_type()
         if not tmdb_type or not tmdb_id:
             return []
-        path = 'related_lists,tmdb_type={},tmdb_id={}'.format(tmdb_type, tmdb_id)
+        params = {'tmdb_type': tmdb_type, 'tmdb_id': tmdb_id}
         if self.infolabels.get('mediatype') == 'episode':
-            path = '{},season={}'.format(path, self.infolabels.get('season'))
-            path = '{},episode={}'.format(path, self.infolabels.get('episode'))
-        return [(ADDON.getLocalizedString(32235), 'RunScript(plugin.video.themoviedb.helper,{})'.format(path))]
+            params['season'] = self.infolabels.get('season')
+            params['episode'] = self.infolabels.get('episode')
+        return [('tmdbhelper.context.related', dumps(params))]
 
     def _context_item_trakt_sync(self):
-        tmdb_id = self.get_tmdb_id()
-        trakt_type = self.get_trakt_type()
+        tmdb_id, trakt_type = self.get_tmdb_id(), self.get_trakt_type()
         if not trakt_type or not tmdb_id:
             return []
-        path = 'sync_item,trakt_type={},unique_id={},id_type=tmdb'.format(trakt_type, tmdb_id)
+        params = {'trakt_type': trakt_type, 'unique_id': tmdb_id, 'id_type': 'tmdb'}
         if self.infolabels.get('mediatype') == 'season':
-            return []
-            # Seasons disabled for now as difficult to manage properly TODO: FIX IT!
-            # path = '{},season={}'.format(path, self.infolabels.get('season'))
-        elif self.infolabels.get('mediatype') == 'episode':
-            path = '{},season={}'.format(path, self.infolabels.get('season'))
-            path = '{},episode={}'.format(path, self.infolabels.get('episode'))
-        return [(
-            ADDON.getLocalizedString(32295),
-            'RunScript(plugin.video.themoviedb.helper,{})'.format(path))]
+            return []  # Seasons disabled for now as difficult to manage properly TODO: FIX IT!
+        if self.infolabels.get('mediatype') == 'episode':
+            params['season'] = self.infolabels.get('season')
+            params['episode'] = self.infolabels.get('episode')
+        return [('tmdbhelper.context.trakt', dumps(params))]
 
     def set_standard_context_menu(self):
-        self.context_menu += self._context_item_related_lists()
-        self.context_menu += self._context_item_get_ftv_artwork()
-        self.context_menu += self._context_item_refresh_details()
-        self.context_menu += self._context_item_trakt_sync()
-        return self.context_menu
+        context_items = []
+        context_items += self._context_item_related_lists()
+        context_items += self._context_item_get_ftv_artwork()
+        context_items += self._context_item_refresh_details()
+        context_items += self._context_item_trakt_sync()
+        for k, v in context_items:
+            self.infoproperties[k] = v
 
     def set_playcount(self, playcount):
         playcount = try_int(playcount)
@@ -169,7 +163,7 @@ class ListItem(object):
                     self.infolabels['playcount'] = playcount
                     self.infolabels['overlay'] = 5
 
-    @timer_report('set_details')
+    # @timer_report('set_details')
     def set_details(self, details=None, reverse=False):
         if not details:
             return
@@ -180,14 +174,25 @@ class ListItem(object):
         self.unique_ids = merge_two_dicts(details.get('unique_ids', {}), self.unique_ids, reverse=reverse)
         self.cast = self.cast or details.get('cast', [])
 
-    def set_params_info_reroute(self):
+    def set_params_info_reroute(self, ftv_forced_lookup=False):
+        if xbmc.getCondVisibility("Window.IsVisible(script-skinshortcuts.xml)"):
+            self.params['widget'] = 'true'
+        if ftv_forced_lookup:
+            self.params['fanarttv'] = ftv_forced_lookup
         if self.params.get('info') != 'details':
             return
         if self.infoproperties.get('tmdb_type') == 'person':
-            self.params['info'] = 'related'
+            self.params['info'] = 'details'
             self.params['tmdb_type'] = 'person'
             self.params['tmdb_id'] = self.unique_ids.get('tmdb')
-            self.is_folder = False
+            self.is_folder = True
+        elif (self.parent_params.get('info') == 'library_nextaired'
+                and self.infolabels.get('mediatype') == 'episode'
+                and ADDON.getSettingBool('nextaired_linklibrary')
+                and self.infoproperties.get('tvshow.dbid')):
+            self.path = 'videodb://tvshows/titles/{}/'.format(self.infoproperties['tvshow.dbid'])
+            self.params = {}
+            self.is_folder = True
         elif self.infolabels.get('mediatype') in ['movie', 'episode', 'video']:
             self.params['info'] = 'play'
             self.is_folder = False
@@ -227,6 +232,8 @@ class ListItem(object):
         return encode_url(self.path, **self.params)
 
     def get_listitem(self):
+        if self.infolabels.get('mediatype') not in constants.ACCEPTED_MEDIATYPES:
+            self.infolabels.pop('mediatype', None)
         listitem = xbmcgui.ListItem(label=self.label, label2=self.label2, path=self.get_url())
         listitem.setLabel2(self.label2)
         listitem.setUniqueIDs(self.unique_ids)

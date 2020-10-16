@@ -1,8 +1,9 @@
+import xbmcgui
 import requests
 import resources.lib.helpers.window as window
 import xml.etree.ElementTree as ET
 import resources.lib.helpers.cache as cache
-from resources.lib.helpers.plugin import kodi_log
+from resources.lib.helpers.plugin import kodi_log, ADDON
 from resources.lib.helpers.parser import try_int
 from resources.lib.helpers.timedate import get_timestamp, set_timestamp
 from copy import copy
@@ -55,6 +56,9 @@ class RequestAPI(object):
             self.req_connect_err = set_timestamp()
             window.get_property(self.req_connect_err_prop, self.req_connect_err)
             kodi_log(u'ConnectionError: {}\nSuppressing retries for 1 minute'.format(err), 1)
+            xbmcgui.Dialog().notification(
+                ADDON.getLocalizedString(32308).format(self.req_api_name),
+                ADDON.getLocalizedString(32307))
 
     def get_api_request(self, request=None, postdata=None, headers=None):
         """
@@ -77,6 +81,9 @@ class RequestAPI(object):
                 self.req_connect_err = set_timestamp()
                 window.get_property(self.req_connect_err_prop, self.req_connect_err)
                 kodi_log(u'HTTP Error Code: {0}\nRequest: {1}\nSuppressing retries for 1 minute'.format(response.status_code, request), 1)
+                xbmcgui.Dialog().notification(
+                    ADDON.getLocalizedString(32308).format(self.req_api_name),
+                    ADDON.getLocalizedString(32307))
             elif try_int(response.status_code) > 400:  # Don't write 400 error to log
                 kodi_log(u'HTTP Error Code: {0}\nRequest: {1}'.format(response.status_code, request), 1)
             return
@@ -91,7 +98,8 @@ class RequestAPI(object):
         """
         request = self.req_api_url
         for arg in args:
-            request = u'{}/{}'.format(request, arg)
+            if arg is not None:
+                request = u'{}/{}'.format(request, arg)
         sep = '?' if '?' not in request else '&'
         request = u'{}{}{}'.format(request, sep, self.req_api_key) if self.req_api_key else request
         for key, value in sorted(kwargs.items()):
