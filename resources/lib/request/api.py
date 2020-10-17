@@ -1,8 +1,8 @@
 import xbmcgui
 import requests
-import resources.lib.helpers.window as window
 import xml.etree.ElementTree as ET
 import resources.lib.helpers.cache as cache
+from resources.lib.helpers.window import get_property
 from resources.lib.helpers.plugin import kodi_log, ADDON
 from resources.lib.helpers.parser import try_int
 from resources.lib.helpers.timedate import get_timestamp, set_timestamp
@@ -35,7 +35,7 @@ class RequestAPI(object):
         self.req_api_key = req_api_key or ''
         self.req_api_name = req_api_name or ''
         self.req_connect_err_prop = 'ConnectionError.{}'.format(self.req_api_name)
-        self.req_connect_err = window.get_property(self.req_connect_err_prop, is_type=float) or 0
+        self.req_connect_err = get_property(self.req_connect_err_prop, is_type=float) or 0
         self.headers = None
         self.timeout = timeout or 10
 
@@ -54,7 +54,7 @@ class RequestAPI(object):
             return requests.post(request, data=postdata, headers=headers)
         except Exception as err:
             self.req_connect_err = set_timestamp()
-            window.get_property(self.req_connect_err_prop, self.req_connect_err)
+            get_property(self.req_connect_err_prop, self.req_connect_err)
             kodi_log(u'ConnectionError: {}\nSuppressing retries for 1 minute'.format(err), 1)
             xbmcgui.Dialog().notification(
                 ADDON.getLocalizedString(32308).format(self.req_api_name),
@@ -79,7 +79,7 @@ class RequestAPI(object):
                 kodi_log(u'HTTP Error Code: {0}\nRequest: {1}\nPostdata: {2}\nHeaders: {3}\nResponse: {4}'.format(response.status_code, request, postdata, headers, response), 1)
             elif response.status_code == 500:
                 self.req_connect_err = set_timestamp()
-                window.get_property(self.req_connect_err_prop, self.req_connect_err)
+                get_property(self.req_connect_err_prop, self.req_connect_err)
                 kodi_log(u'HTTP Error Code: {0}\nRequest: {1}\nSuppressing retries for 1 minute'.format(response.status_code, request), 1)
                 xbmcgui.Dialog().notification(
                     ADDON.getLocalizedString(32308).format(self.req_api_name),

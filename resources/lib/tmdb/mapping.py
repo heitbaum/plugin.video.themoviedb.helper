@@ -1,5 +1,5 @@
 import xbmc
-import resources.lib.helpers.plugin as plugin
+from resources.lib.helpers.plugin import get_mpaa_prefix, get_language
 from resources.lib.helpers.plugin import viewitems, ADDON
 from resources.lib.helpers.parser import try_int, try_float
 from resources.lib.helpers.setutils import iter_props, dict_to_list, get_params
@@ -224,8 +224,8 @@ def get_crew_properties(v):
 
 class ItemMapper(_ItemMapper):
     def __init__(self, language=None, mpaa_prefix=None):
-        self.language = language or plugin.get_language()
-        self.mpaa_prefix = mpaa_prefix or plugin.get_mpaa_prefix()
+        self.language = language or get_language()
+        self.mpaa_prefix = mpaa_prefix or get_mpaa_prefix()
         self.iso_language = language[:2]
         self.iso_country = language[-2:]
         """ Mapping dictionary

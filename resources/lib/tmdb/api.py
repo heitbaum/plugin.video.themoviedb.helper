@@ -1,16 +1,16 @@
 import xbmcgui
 import datetime
-import resources.lib.helpers.plugin as plugin
 import resources.lib.helpers.cache as cache
 from resources.lib.tmdb.mapping import ItemMapper, get_episode_to_air
 from resources.lib.request.api import RequestAPI
-from resources.lib.helpers.plugin import viewitems
+from resources.lib.helpers.plugin import viewitems, ADDON, get_mpaa_prefix, get_language, convert_type, TYPE_DB, ADDONPATH
 from resources.lib.helpers.downloader import Downloader
 from resources.lib.items.listitem import ListItem
 from resources.lib.helpers.constants import TMDB_ALL_ITEMS_LISTS, TMDB_PARAMS_SEASONS, TMDB_PARAMS_EPISODES
 from resources.lib.helpers.parser import try_int
 from resources.lib.helpers.fileutils import use_pickle
 from resources.lib.helpers.constants import TMDB_GENRE_IDS
+from resources.lib.helpers.window import get_property
 from json import loads
 
 
@@ -22,8 +22,8 @@ class TMDb(RequestAPI):
     def __init__(
             self,
             api_key='a07324c669cac4d96789197134ce272b',
-            language=plugin.get_language(),
-            mpaa_prefix=plugin.get_mpaa_prefix()):
+            language=get_language(),
+            mpaa_prefix=get_mpaa_prefix()):
         super(TMDb, self).__init__(
             req_api_name='TMDb',
             req_api_url=API_URL,
@@ -168,7 +168,21 @@ class TMDb(RequestAPI):
         child_info = self._get_details_request(tmdb_type, tmdb_id, season, episode)
         return self.mapper.get_info(child_info, child_type, base_item, tmdb_id=tmdb_id)
 
-    def get_season_list(self, tmdb_id):
+    def _get_upnext_season_item(self, base_item):
+        base_item['params']['info'] = 'trakt_upnext'
+        base_item['infolabels']['mediatype'] = 'season'
+        base_item['label'] = base_item['infolabels']['title'] = ADDON.getLocalizedString(32043)
+        return [base_item]
+
+    def get_flatseasons_list(self, tmdb_id):
+        request = self.get_request_sc('tv/{}'.format(tmdb_id))
+        if not request or not request.get('seasons'):
+            return []
+        return [
+            j for i in request['seasons'] for j in self.get_episode_list(tmdb_id, i['season_number'])
+            if i.get('season_number')]
+
+    def get_season_list(self, tmdb_id, hide_specials=False):
         request = self.get_request_sc('tv/{}'.format(tmdb_id))
         if not request:
             return []
@@ -177,6 +191,14 @@ class TMDb(RequestAPI):
         for i in request.get('seasons', []):
             item = self.mapper.get_info(i, 'season', base_item, definition=TMDB_PARAMS_SEASONS, tmdb_id=tmdb_id)
             items.append(item) if i.get('season_number') != 0 else items_end.append(item)
+        if hide_specials:
+            return items
+        if get_property('TraktIsAuth') == 'True':
+            upnext_item = self.mapper.get_info({
+                'title': ADDON.getLocalizedString(32043)}, 'season', base_item, tmdb_id=tmdb_id, definition={
+                    'info': 'trakt_upnext', 'tmdb_type': 'tv', 'tmdb_id': '{tmdb_id}'})
+            upnext_item['art']['thumb'] = upnext_item['art']['poster'] = '{}/resources/icons/trakt/upnext.png'.format(ADDONPATH)
+            items_end.append(upnext_item)
         return items + items_end
 
     def get_episode_list(self, tmdb_id, season):
@@ -255,7 +277,7 @@ class TMDb(RequestAPI):
         limit = TMDB_ALL_ITEMS_LISTS.get(tmdb_type, {}).get('limit', 20)
         pos_z = try_int(page, fallback=1) * limit
         pos_a = pos_z - limit
-        dbtype = plugin.convert_type(tmdb_type, plugin.TYPE_DB)
+        dbtype = convert_type(tmdb_type, TYPE_DB)
         for i in daily_list[pos_a:pos_z]:
             if not i.get('id'):
                 continue

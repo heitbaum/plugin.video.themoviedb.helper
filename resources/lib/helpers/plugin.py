@@ -4,7 +4,7 @@ import sys
 import xbmc
 import xbmcaddon
 import hashlib
-import resources.lib.helpers.constants as constants
+from resources.lib.helpers.constants import LANGUAGES
 
 
 ADDON = xbmcaddon.Addon('plugin.video.themoviedb.helper')
@@ -73,7 +73,7 @@ def kodi_log(value, level=0):
 
 def get_language():
     if ADDON.getSettingInt('language'):
-        return constants.LANGUAGES[ADDON.getSettingInt('language')]
+        return LANGUAGES[ADDON.getSettingInt('language')]
     return 'en-US'
 
 

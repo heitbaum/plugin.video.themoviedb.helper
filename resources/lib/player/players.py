@@ -4,9 +4,9 @@ import xbmc
 import xbmcgui
 import xbmcaddon
 import datetime
-import resources.lib.helpers.rpc as rpc
-import resources.lib.helpers.window as window
-import resources.lib.helpers.constants as constants
+from resources.lib.helpers.rpc import get_jsonrpc, get_directory
+from resources.lib.helpers.constants import PLAYERS_URLENCODE, PLAYERS_BASEDIR_BUNDLED, PLAYERS_BASEDIR_USER
+from resources.lib.helpers.window import get_property
 from resources.lib.tmdb.api import TMDb
 from resources.lib.items.listitem import ListItem
 from resources.lib.helpers.plugin import ADDON, PLUGINPATH, ADDONPATH, viewitems
@@ -52,10 +52,10 @@ class KeyboardInputter(Thread):
             xbmc.Monitor().waitForAbort(self.poll)
             self.timeout -= self.poll
             if self.text and xbmc.getCondVisibility("Window.IsVisible(DialogKeyboard.xml)"):
-                rpc.get_jsonrpc("Input.SendText", {"text": self.text, "done": True})
+                get_jsonrpc("Input.SendText", {"text": self.text, "done": True})
                 self.exit = True
             elif self.action and xbmc.getCondVisibility("Window.IsVisible(DialogSelect.xml) | Window.IsVisible(DialogConfirm.xml)"):
-                rpc.get_jsonrpc(self.action)
+                get_jsonrpc(self.action)
                 self.exit = True
 
 
@@ -119,6 +119,7 @@ class Players(object):
         return [{
             'name': '{} Kodi'.format(ADDON.getLocalizedString(32061)),
             'is_folder': False,
+            'is_local': True,
             'plugin_name': 'xbmc.core',
             'plugin_icon': '{}/resources/icons/other/kodi.png'.format(ADDONPATH),
             'actions': file}]
@@ -167,9 +168,9 @@ class Players(object):
 
     def _get_players_from_file(self):
         players = {}
-        basedirs = [constants.PLAYERS_BASEDIR_USER]
+        basedirs = [PLAYERS_BASEDIR_USER]
         if ADDON.getSettingBool('bundled_players'):
-            basedirs += [constants.PLAYERS_BASEDIR_BUNDLED]
+            basedirs += [PLAYERS_BASEDIR_BUNDLED]
         for basedir in basedirs:
             files = get_files_in_folder(basedir, r'.*\.json')
             for file in files:
@@ -235,7 +236,7 @@ class Players(object):
             item['slug'] = details.unique_ids.get('tvshow.slug')
 
         for k, v in viewitems(item.copy()):
-            if k not in constants.PLAYERS_URLENCODE:
+            if k not in PLAYERS_URLENCODE:
                 continue
             v = u'{0}'.format(v)
             for key, value in viewitems({k: v, '{}_meta'.format(k): dumps(v)}):
@@ -372,7 +373,7 @@ class Players(object):
 
             # Get the next folder from the plugin
             with busy_dialog():
-                folder = rpc.get_directory(string_format_map(path[0], self.item))
+                folder = get_directory(string_format_map(path[0], self.item))
 
             # Kill our keyboard inputter thread
             if keyboard_input:
@@ -404,6 +405,13 @@ class Players(object):
 
     def get_default_player(self):
         """ Returns default player """
+        # Check local first if we have the setting
+        if ADDON.getSettingBool('default_player_local') and self.dialog_players[0].get('is_local'):
+            player = self.dialog_players[0]
+            player['idx'] = 0
+            return player
+        if not self.default_player:
+            return
         all_players = [u'{} {}'.format(i.get('file'), i.get('mode')) for i in self.dialog_players]
         try:
             x = all_players.index(self.default_player)
@@ -414,7 +422,7 @@ class Players(object):
         return player
 
     def _get_resolved_path(self, player=None, allow_default=False):
-        if not player and allow_default and self.default_player:
+        if not player and allow_default:
             player = self.get_default_player()
         player = player or self.select_player()
         if not player:
@@ -430,7 +438,7 @@ class Players(object):
     def get_resolved_path(self, return_listitem=True):
         if not self.item:
             return
-        window.get_property('PlayerInfoString', clear_property=True)
+        get_property('PlayerInfoString', clear_property=True)
         path = self._get_resolved_path(allow_default=True)
         if return_listitem:
             self.details.path = path[0] if path else None
@@ -471,6 +479,10 @@ class Players(object):
         path = listitem.getPath()
         is_folder = True if listitem.getProperty('is_folder') == 'true' else False
 
+        # Wait a moment because sometimes Kodi crashes if we call the plugin to play too quickly!!!
+        with busy_dialog():
+            xbmc.Monitor().waitForAbort(1)
+
         # Reset folder hack
         self._update_listing_hack(folder_path=folder_path, reset_focus=reset_focus)
 
@@ -493,11 +505,7 @@ class Players(object):
         #     action = u'PlayMedia(\"{0}\")'.format(path)
 
         if not is_folder and self.playerstring:
-            window.get_property('PlayerInfoString', set_property=self.playerstring)
-
-        # Wait a moment because sometimes Kodi crashes if we call the plugin to play too quickly!!!
-        with busy_dialog():
-            xbmc.Monitor().waitForAbort(1)
+            get_property('PlayerInfoString', set_property=self.playerstring)
 
         if action:
             xbmc.executebuiltin(try_encode(try_decode(action)))

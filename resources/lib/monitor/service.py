@@ -1,5 +1,5 @@
 import xbmc
-import resources.lib.helpers.window as window
+from resources.lib.helpers.window import get_property, wait_for_property
 from resources.lib.helpers.plugin import ADDON, kodi_log
 from resources.lib.monitor.cronjob import CronJobMonitor
 from resources.lib.monitor.listitem import ListItemMonitor
@@ -8,9 +8,9 @@ from threading import Thread
 
 
 def restart_service_monitor():
-    if window.get_property('ServiceStarted') == 'True':
-        window.wait_for_property('ServiceStop', value='True', set_property=True)  # Stop service
-    window.wait_for_property('ServiceStop', value=None)  # Wait until Service clears property
+    if get_property('ServiceStarted') == 'True':
+        wait_for_property('ServiceStop', value='True', set_property=True)  # Stop service
+    wait_for_property('ServiceStop', value=None)  # Wait until Service clears property
     Thread(target=ServiceMonitor().run).start()
 
 
@@ -67,12 +67,12 @@ class ServiceMonitor(object):
         del self.player_monitor
         del self.listitem_monitor
         del self.xbmc_monitor
-        window.get_property('ServiceStarted', clear_property=True)
-        window.get_property('ServiceStop', clear_property=True)
+        get_property('ServiceStarted', clear_property=True)
+        get_property('ServiceStop', clear_property=True)
 
     def poller(self):
         while not self.xbmc_monitor.abortRequested() and not self.exit:
-            if window.get_property('ServiceStop'):
+            if get_property('ServiceStop'):
                 self.cron_job.exit = True
                 self.exit = True
 
@@ -123,7 +123,7 @@ class ServiceMonitor(object):
         self._on_exit()
 
     def run(self):
-        window.get_property('ServiceStarted', 'True')
+        get_property('ServiceStarted', 'True')
         self.cron_job.start()
         self.player_monitor = PlayerMonitor()
         self.poller()

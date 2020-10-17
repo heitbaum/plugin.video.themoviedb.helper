@@ -1,5 +1,5 @@
 import xbmc
-import resources.lib.helpers.window as window
+from resources.lib.helpers.window import get_property
 from resources.lib.tmdb.api import TMDb
 from resources.lib.omdb.api import OMDb
 from resources.lib.trakt.api import TraktAPI
@@ -43,7 +43,7 @@ class CommonMonitorFunctions(object):
     def clear_property(self, key):
         key = '{}.{}'.format(self.property_prefix, key)
         try:
-            window.get_property(key, clear_property=True)
+            get_property(key, clear_property=True)
         except Exception as exc:
             kodi_log(['Func: clear_property\n', key, exc], 1)
 
@@ -51,9 +51,9 @@ class CommonMonitorFunctions(object):
         key = '{}.{}'.format(self.property_prefix, key)
         try:
             if value is None:
-                window.get_property(key, clear_property=True)
+                get_property(key, clear_property=True)
             else:
-                window.get_property(key, set_property=u'{0}'.format(value))
+                get_property(key, set_property=u'{0}'.format(value))
         except Exception as exc:
             kodi_log(u'{}{}'.format(key, exc), 1)
 

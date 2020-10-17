@@ -3,8 +3,8 @@ import xbmcgui
 import xbmcvfs
 import resources.lib.helpers.rpc as rpc
 import resources.lib.helpers.cache as cache
-import resources.lib.helpers.timedate as timedate
-import resources.lib.helpers.decorators as decorators
+from resources.lib.helpers.timedate import is_future_timestamp, get_todays_date, get_current_date_time
+from resources.lib.helpers.decorators import busy_dialog
 from resources.lib.tmdb.api import TMDb
 from resources.lib.trakt.api import TraktAPI
 from resources.lib.helpers.plugin import kodi_log, ADDON
@@ -135,8 +135,8 @@ def add_movie(tmdb_id, imdb_id=None, title='', year='', kodi_db=None):
     return ('filename', db_file.replace('\\', '/').split('/')[-1])
 
 
-def add_tvshow(basedir=None, folder=None, url=None, tmdb_id=None, tvdb_id=None, imdb_id=None, p_dialog=None, force=False, kodi_db=None):
-    if not basedir or not folder or not url or not tmdb_id:
+def add_tvshow(basedir=None, folder=None, tmdb_id=None, tvdb_id=None, imdb_id=None, p_dialog=None, force=False, kodi_db=None):
+    if not basedir or not folder or not tmdb_id:
         return
 
     # Get our cached info
@@ -155,7 +155,7 @@ def add_tvshow(basedir=None, folder=None, url=None, tmdb_id=None, tvdb_id=None, 
 
     # If there is a next check value and it hasn't elapsed then skip the update
     next_check = cache_info.get('next_check')
-    if next_check and timedate.is_future_timestamp(next_check, "%Y-%m-%d", 10):
+    if next_check and is_future_timestamp(next_check, "%Y-%m-%d", 10):
         if DEBUG_LOGGING:
             log_msg = cache_info.get('log_msg') or ''
             kodi_log([
@@ -176,7 +176,7 @@ def add_tvshow(basedir=None, folder=None, url=None, tmdb_id=None, tvdb_id=None, 
     create_nfo('tv', tmdb_id, folder, basedir=basedir)
 
     # Construct our cache object
-    today_date = timedate.get_todays_date()
+    today_date = get_todays_date()
     my_history = {
         'version': cache_version,
         'name': details_tvshow.get('name', ''),
@@ -191,17 +191,17 @@ def add_tvshow(basedir=None, folder=None, url=None, tmdb_id=None, tvdb_id=None, 
     next_aired = details_tvshow.get('next_episode_to_air', {})
     if next_aired and next_aired.get('air_date'):
         next_aired_dt = next_aired.get('air_date')
-        if timedate.is_future_timestamp(next_aired_dt, "%Y-%m-%d", 10):
-            if not timedate.is_future_timestamp(next_aired_dt, "%Y-%m-%d", 10, days=7):
+        if is_future_timestamp(next_aired_dt, "%Y-%m-%d", 10):
+            if not is_future_timestamp(next_aired_dt, "%Y-%m-%d", 10, days=7):
                 my_history['next_check'] = next_aired.get('air_date')
                 my_history['log_msg'] = '\nShow had next aired date this week'
                 # Check again on the next aired date
-            elif not timedate.is_future_timestamp(next_aired_dt, "%Y-%m-%d", 10, days=30):
-                my_history['next_check'] = timedate.get_todays_date(days=7)
+            elif not is_future_timestamp(next_aired_dt, "%Y-%m-%d", 10, days=30):
+                my_history['next_check'] = get_todays_date(days=7)
                 my_history['log_msg'] = '\nShow has next aired date this month'
                 # Check again in a week just to be safe in case air date changes
             else:
-                my_history['next_check'] = timedate.get_todays_date(days=30)
+                my_history['next_check'] = get_todays_date(days=30)
                 my_history['log_msg'] = '\nShow has next aired date in more than a month'
                 # Check again in a month just to be safe in case air date changes
         else:
@@ -210,21 +210,21 @@ def add_tvshow(basedir=None, folder=None, url=None, tmdb_id=None, tvdb_id=None, 
     last_aired = details_tvshow.get('last_episode_to_air', {})
     if not next_aired and last_aired and last_aired.get('air_date'):
         last_aired_dt = last_aired.get('air_date')
-        if timedate.is_future_timestamp(last_aired_dt, "%Y-%m-%d", 10, days=-30):
-            my_history['next_check'] = timedate.get_todays_date(days=1)
+        if is_future_timestamp(last_aired_dt, "%Y-%m-%d", 10, days=-30):
+            my_history['next_check'] = get_todays_date(days=1)
             my_history['log_msg'] = '\nShow aired in last month but no next aired date'
             # Show might be currently airing but just hasnt updated next date yet so check again tomorrow
-        elif timedate.is_future_timestamp(last_aired_dt, "%Y-%m-%d", 10, days=-90):
+        elif is_future_timestamp(last_aired_dt, "%Y-%m-%d", 10, days=-90):
             my_history['log_msg'] = '\nShow aired in last quarter but not in last month'
-            my_history['next_check'] = timedate.get_todays_date(days=7)
+            my_history['next_check'] = get_todays_date(days=7)
             # Show might be on a mid-season break so check again in a week for a return date
         elif details_tvshow.get('status') in ['Canceled', 'Ended']:
             my_history['log_msg'] = '\nShow was canceled or ended'
-            my_history['next_check'] = timedate.get_todays_date(days=30)
+            my_history['next_check'] = get_todays_date(days=30)
             # Show was canceled so check again in a month just to be safe
         else:
             my_history['log_msg'] = '\nShow last aired more than 3 months ago and no next aired date set'
-            my_history['next_check'] = timedate.get_todays_date(days=7)
+            my_history['next_check'] = get_todays_date(days=7)
             # Show hasnt aired in a while so check every week for a return date
 
     kodi_db = kodi_db or rpc.get_kodi_library('tv')
@@ -286,7 +286,7 @@ def add_tvshow(basedir=None, folder=None, url=None, tmdb_id=None, tvdb_id=None, 
 
             # Skip future episodes
             if ADDON.getSettingBool('hide_unaired_episodes'):
-                if timedate.is_future_timestamp(episode.get('air_date'), "%Y-%m-%d", 10):
+                if is_future_timestamp(episode.get('air_date'), "%Y-%m-%d", 10):
                     if DEBUG_LOGGING:
                         future_eps.append(episode_name)
                     my_history['skipped'].append(episode_name)
@@ -324,15 +324,15 @@ def add_tvshow(basedir=None, folder=None, url=None, tmdb_id=None, tvdb_id=None, 
         # Store a season value of where we got up to
         if len(episodes) > 2:
             # Make sure the season has actually aired!
-            if season.get('air_date') and not timedate.is_future_timestamp(season.get('air_date'), "%Y-%m-%d", 10):
+            if season.get('air_date') and not is_future_timestamp(season.get('air_date'), "%Y-%m-%d", 10):
                 my_history['latest_season'] = try_int(season.get('season_number'))
 
     # Store details about what we did into the cache
     cache.set_cache(my_history, cache_name, cache_days=120)
 
 
-def get_userlist(user_slug=None, list_slug=None, confirm=True, busy_dialog=True):
-    with decorators.busy_dialog(is_enabled=busy_dialog):
+def get_userlist(user_slug=None, list_slug=None, confirm=True, busy_spinner=True):
+    with busy_dialog(is_enabled=busy_spinner):
         request = TraktAPI().get_response_json('users', user_slug, 'lists', list_slug, 'items')
     if not request:
         return
@@ -348,7 +348,7 @@ def get_userlist(user_slug=None, list_slug=None, confirm=True, busy_dialog=True)
                 ADDON.getLocalizedString(32164).format(LIBRARY_ADD_LIMIT_TVSHOWS, LIBRARY_ADD_LIMIT_MOVIES)]
             xbmcgui.Dialog().ok(d_head, '\n'.join(d_body))
             return
-        elif confirm != 2:  # Set confirm param to 2 to only check limits
+        elif isinstance(confirm, bool) or len(request) > confirm:
             # List is within limits so ask for confirmation before adding it
             d_body = [
                 ADDON.getLocalizedString(32168).format(list_slug, user_slug),
@@ -360,14 +360,14 @@ def get_userlist(user_slug=None, list_slug=None, confirm=True, busy_dialog=True)
     return request
 
 
-def add_userlist(user_slug=None, list_slug=None, confirm=True, allow_update=True, busy_dialog=True, force=False):
+def add_userlist(user_slug=None, list_slug=None, confirm=True, allow_update=True, busy_spinner=True, force=False):
     # user_slug = user_slug or sys.listitem.getProperty('Item.user_slug')
     # list_slug = list_slug or sys.listitem.getProperty('Item.list_slug')
-
-    request = get_userlist(user_slug=user_slug, list_slug=list_slug, confirm=confirm, busy_dialog=busy_dialog)
+    request = get_userlist(user_slug=user_slug, list_slug=list_slug, confirm=confirm, busy_spinner=busy_spinner)
+    if not request:
+        return
     i_total = len(request)
-
-    p_dialog = xbmcgui.DialogProgressBG() if busy_dialog else None
+    p_dialog = xbmcgui.DialogProgressBG() if busy_spinner else None
     p_dialog.create('TMDbHelper', ADDON.getLocalizedString(32166)) if p_dialog else None
 
     all_movies = []
@@ -402,7 +402,6 @@ def add_userlist(user_slug=None, list_slug=None, confirm=True, allow_update=True
             add_tvshow(
                 basedir=BASEDIR_TV,
                 folder=u'{}'.format(item.get('title')),
-                url='plugin://plugin.video.themoviedb.helper/?info=seasons&nextpage=True&tmdb_id={}&tmdb_type=tv'.format(tmdb_id),
                 tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id, p_dialog=p_dialog, force=force)
 
     if p_dialog:
@@ -412,4 +411,86 @@ def add_userlist(user_slug=None, list_slug=None, confirm=True, allow_update=True
     if all_tvshows:
         create_playlist(all_tvshows, 'tvshows', user_slug, list_slug)
     if allow_update and ADDON.getSettingBool('auto_update'):
+        xbmc.executebuiltin('UpdateLibrary(video)')
+
+
+def _get_monitor_userlists(list_slugs=None, user_slugs=None):
+    saved_lists = list_slugs or ADDON.getSettingString('monitor_userlist') or ''
+    saved_users = user_slugs or ADDON.getSettingString('monitor_userslug') or ''
+    saved_lists = saved_lists.split(' | ') or []
+    saved_users = saved_users.split(' | ') or []
+    return [(i, saved_users[x]) for x, i in enumerate(saved_lists)]
+
+
+def monitor_userlist():
+    # Build list choices
+    with busy_dialog():
+        user_lists = []
+        user_lists += TraktAPI().get_list_of_lists('users/me/lists', authorize=True, next_page=False) or []
+        user_lists += TraktAPI().get_list_of_lists('users/likes/lists', authorize=True, next_page=False) or []
+        saved_lists = _get_monitor_userlists()
+        dialog_list = [i['label'] for i in user_lists]
+        preselected = [
+            x for x, i in enumerate(user_lists)
+            if (i.get('params', {}).get('list_slug'), i.get('params', {}).get('user_slug')) in saved_lists]
+
+    # Ask user to choose lists
+    indices = xbmcgui.Dialog().multiselect(ADDON.getLocalizedString(32312), dialog_list, preselect=preselected)
+    if indices is None:
+        return
+
+    # Build the new settings and check that lists aren't over limit
+    added_lists, added_users = [], []
+    for x in indices:
+        list_slug = user_lists[x].get('params', {}).get('list_slug')
+        user_slug = user_lists[x].get('params', {}).get('user_slug')
+        if get_userlist(user_slug, list_slug, confirm=50):
+            added_lists.append(list_slug)
+            added_users.append(user_slug)
+
+    # Set the added lists to our settings
+    if not added_lists or not added_users:
+        return
+    added_lists = ' | '.join(added_lists)
+    added_users = ' | '.join(added_users)
+    ADDON.setSettingString('monitor_userlist', added_lists)
+    ADDON.setSettingString('monitor_userslug', added_users)
+
+    # Update library?
+    if xbmcgui.Dialog().yesno(xbmc.getLocalizedString(653), ADDON.getLocalizedString(32132)):
+        library_autoupdate(list_slugs=added_lists, user_slugs=added_users, busy_spinner=True)
+
+
+def library_autoupdate(list_slugs=None, user_slugs=None, busy_spinner=False, force=False):
+    kodi_log(u'UPDATING TV SHOWS LIBRARY', 1)
+    xbmcgui.Dialog().notification('TMDbHelper', u'{}...'.format(ADDON.getLocalizedString(32167)))
+
+    # Update library from Trakt lists
+    user_lists = _get_monitor_userlists(list_slugs, user_slugs)
+    for list_slug, user_slug in user_lists:
+        add_userlist(user_slug, list_slug, confirm=False, allow_update=False, busy_spinner=busy_spinner, force=force)
+
+    # Create our extended progress bg dialog
+    p_dialog = xbmcgui.DialogProgressBG() if busy_spinner else None
+    p_dialog.create('TMDbHelper', u'{}...'.format(ADDON.getLocalizedString(32167))) if p_dialog else None
+
+    # Get TMDb IDs from .nfo files in the basedir
+    nfos = []
+    nfos_append = nfos.append  # For speed since we can't do a list comp easily here
+    for f in xbmcvfs.listdir(BASEDIR_TV)[0]:
+        tmdb_id = get_tmdb_id_nfo(BASEDIR_TV, f)
+        nfos_append({'tmdb_id': tmdb_id, 'folder': f}) if tmdb_id else None
+
+    # Update each show in folder
+    for x, i in enumerate(nfos):
+        if p_dialog:
+            p_dialog_val = ((x + 1) * 100) // len(nfos)
+            p_dialog_msg = u'{} {}...'.format(ADDON.getLocalizedString(32167), i['folder'])
+            p_dialog.update(p_dialog_val, message=p_dialog_msg)
+        add_tvshow(basedir=BASEDIR_TV, folder=i['folder'], tmdb_id=i['tmdb_id'], p_dialog=p_dialog)
+    p_dialog.close() if p_dialog else None
+
+    # Set last update string and then update library if setting is on
+    ADDON.setSettingString('last_autoupdate', 'Last updated {}'.format(get_current_date_time()))
+    if ADDON.getSettingBool('auto_update'):
         xbmc.executebuiltin('UpdateLibrary(video)')

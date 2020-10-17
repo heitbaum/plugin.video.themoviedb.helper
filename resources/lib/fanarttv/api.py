@@ -1,10 +1,9 @@
 import xbmc
 import xbmcgui
-import resources.lib.helpers.plugin as plugin
 import resources.lib.helpers.cache as cache
 from resources.lib.request.api import RequestAPI
 from resources.lib.items.listitem import ListItem
-from resources.lib.helpers.plugin import ADDON, viewitems
+from resources.lib.helpers.plugin import ADDON, viewitems, get_language
 from resources.lib.helpers.setutils import del_empty_keys
 from resources.lib.helpers.decorators import busy_dialog
 # from resources.lib.helpers.decorators import timer_report
@@ -35,7 +34,7 @@ class FanartTV(RequestAPI):
             self,
             api_key='fcca59bee130b70db37ee43e63f8d6c1',
             client_key=ADDON.getSettingString('fanarttv_clientkey'),
-            language=plugin.get_language(),
+            language=get_language(),
             cache_only=False,
             cache_refresh=False):
         super(FanartTV, self).__init__(

@@ -1,6 +1,6 @@
 import xbmc
 import xbmcgui
-import resources.lib.helpers.constants as constants
+from resources.lib.helpers.constants import ACCEPTED_MEDIATYPES
 from resources.lib.helpers.plugin import ADDON, ADDONPATH, PLUGINPATH, kodi_log, viewitems
 from resources.lib.helpers.parser import try_int, encode_url
 from resources.lib.helpers.timedate import is_future_timestamp
@@ -36,6 +36,7 @@ class ListItem(object):
             return
         self.label = xbmc.getLocalizedString(33078)
         self.art['thumb'] = '{}/resources/icons/tmdb/nextpage.png'.format(ADDONPATH)
+        self.art['landscape'] = '{}/resources/icons/tmdb/nextpage_wide.png'.format(ADDONPATH)
         self.infoproperties['specialsort'] = 'bottom'
         self.params = self.parent_params.copy()
         self.params['page'] = next_page
@@ -174,7 +175,7 @@ class ListItem(object):
         self.unique_ids = merge_two_dicts(details.get('unique_ids', {}), self.unique_ids, reverse=reverse)
         self.cast = self.cast or details.get('cast', [])
 
-    def set_params_info_reroute(self, ftv_forced_lookup=False):
+    def set_params_info_reroute(self, ftv_forced_lookup=False, flatten_seasons=False):
         if xbmc.getCondVisibility("Window.IsVisible(script-skinshortcuts.xml)"):
             self.params['widget'] = 'true'
         if ftv_forced_lookup:
@@ -197,7 +198,7 @@ class ListItem(object):
             self.params['info'] = 'play'
             self.is_folder = False
         elif self.infolabels.get('mediatype') == 'tvshow':
-            self.params['info'] = 'seasons'
+            self.params['info'] = 'flatseasons' if flatten_seasons else 'seasons'
         elif self.infolabels.get('mediatype') == 'season':
             self.params['info'] = 'episodes'
         elif self.infolabels.get('mediatype') == 'set':
@@ -232,7 +233,7 @@ class ListItem(object):
         return encode_url(self.path, **self.params)
 
     def get_listitem(self):
-        if self.infolabels.get('mediatype') not in constants.ACCEPTED_MEDIATYPES:
+        if self.infolabels.get('mediatype') not in ACCEPTED_MEDIATYPES:
             self.infolabels.pop('mediatype', None)
         listitem = xbmcgui.ListItem(label=self.label, label2=self.label2, path=self.get_url())
         listitem.setLabel2(self.label2)

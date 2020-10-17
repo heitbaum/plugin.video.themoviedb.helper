@@ -2,7 +2,6 @@ import xbmc
 import xbmcgui
 import resources.lib.helpers.cache as cache
 import resources.lib.helpers.plugin as plugin
-from resources.lib.tmdb.api import TMDb
 from resources.lib.helpers.plugin import ADDONPATH, ADDON, PLUGINPATH
 from resources.lib.helpers.parser import try_decode, urlencode_params
 from resources.lib.helpers.setutils import merge_two_dicts
@@ -49,7 +48,7 @@ class SearchLists():
         if not query:
             return
 
-        items = TMDb().get_search_list(
+        items = self.tmdb_api.get_search_list(
             tmdb_type=tmdb_type, query=query, page=page,
             year=kwargs.get('year'),
             first_air_date_year=kwargs.get('first_air_date_year'),
