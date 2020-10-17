@@ -26,7 +26,6 @@ class TMDbLists():
 
     def list_seasons(self, tmdb_id, **kwargs):
         items = self.tmdb_api.get_season_list(tmdb_id, hide_specials=ADDON.getSettingBool('hide_special_seasons'))
-        self.kodi_db = self.get_kodi_database('tv')
         self.container_content = convert_type('season', TYPE_CONTAINER)
         return items
 
