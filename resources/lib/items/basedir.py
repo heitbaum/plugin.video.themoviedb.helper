@@ -1,8 +1,6 @@
 import xbmc
 import datetime
-import resources.lib.helpers.plugin as plugin
-from resources.lib.tmdb.api import TMDb
-from resources.lib.helpers.plugin import PLUGINPATH, ADDONPATH, ADDON
+from resources.lib.helpers.plugin import PLUGINPATH, ADDONPATH, ADDON, convert_type, TYPE_PLURAL
 from resources.lib.helpers.setutils import merge_two_items
 from json import dumps
 
@@ -15,7 +13,7 @@ def _build_basedir(item_type=None, basedir=None):
         for i_type in i.get('types', []):
             if item_type and item_type != i_type:
                 continue
-            plural = '' if item_type else plugin.convert_type(i_type, plugin.TYPE_PLURAL)  # Dont add type name to label if only one type
+            plural = '' if item_type else convert_type(i_type, TYPE_PLURAL)  # Dont add type name to label if only one type
             item = i.copy()
             item['label'] = i.get('label', '').format(space=space, item_type=plural)
             item['params'] = i.get('params', {}).copy()
@@ -642,7 +640,7 @@ class BaseDirLists():
             return _get_basedir_calendar(info='library_nextaired')
 
     def list_details(self, tmdb_type, tmdb_id, season=None, episode=None, **kwargs):
-        base_item = TMDb().get_details(tmdb_type, tmdb_id, season, episode)
+        base_item = self.tmdb_api.get_details(tmdb_type, tmdb_id, season, episode)
         items = get_basedir_details(tmdb_type, tmdb_id, season, episode, base_item)
         self.container_content = self.get_container_content(tmdb_type, season, episode)
         return items

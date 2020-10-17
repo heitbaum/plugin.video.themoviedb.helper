@@ -1,8 +1,7 @@
 import xbmc
 import resources.lib.helpers.rpc as rpc
-import resources.lib.helpers.window as window
-import resources.lib.monitor.common as monitor_common
-from resources.lib.monitor.common import CommonMonitorFunctions
+from resources.lib.helpers.window import get_property
+from resources.lib.monitor.common import CommonMonitorFunctions, SETMAIN_ARTWORK, SETPROP_RATINGS
 from resources.lib.monitor.images import ImageFunctions
 from resources.lib.helpers.plugin import ADDON, kodi_log
 from resources.lib.helpers.parser import try_decode
@@ -10,7 +9,7 @@ from threading import Thread
 
 
 def get_container():
-    widget_id = window.get_property('WidgetContainer', is_type=int)
+    widget_id = get_property('WidgetContainer', is_type=int)
     if widget_id:
         return 'Container({0}).'.format(widget_id)
     return 'Container.'
@@ -140,7 +139,7 @@ class ListItemMonitor(CommonMonitorFunctions):
                 details = self.get_fanarttv_artwork(details, tmdb_type)
             if not self.is_same_item():
                 return
-            self.set_iter_properties(details.get('art', {}), monitor_common.SETMAIN_ARTWORK)
+            self.set_iter_properties(details.get('art', {}), SETMAIN_ARTWORK)
 
             # Crop Image
             if details.get('clearlogo'):
@@ -165,7 +164,7 @@ class ListItemMonitor(CommonMonitorFunctions):
                     season=self.season, episode=self.episode)
             if not self.is_same_item():
                 return
-            self.set_iter_properties(details.get('infoproperties', {}), monitor_common.SETPROP_RATINGS)
+            self.set_iter_properties(details.get('infoproperties', {}), SETPROP_RATINGS)
         except Exception as exc:
             kodi_log(u'Func: process_ratings\n{}'.format(exc), 1)
 
@@ -176,7 +175,7 @@ class ListItemMonitor(CommonMonitorFunctions):
             return
         ignore_keys = None
         if self.dbtype in ['episodes', 'seasons']:
-            ignore_keys = monitor_common.SETMAIN_ARTWORK
+            ignore_keys = SETMAIN_ARTWORK
         self.clear_properties(ignore_keys=ignore_keys)
 
     def get_artwork(self, source='', fallback=''):
@@ -208,7 +207,7 @@ class ListItemMonitor(CommonMonitorFunctions):
             return self.clear_properties()
 
         # Set our is_updating flag
-        window.get_property('IsUpdating', 'True')
+        get_property('IsUpdating', 'True')
 
         # If the folder changed let's clear all the properties before doing a look-up
         # Possible that our new look-up will fail so good to have a clean slate
@@ -221,41 +220,41 @@ class ListItemMonitor(CommonMonitorFunctions):
         # Blur Image
         if xbmc.getCondVisibility("Skin.HasSetting(TMDbHelper.EnableBlur)"):
             self.blur_img = ImageFunctions(method='blur', artwork=self.get_artwork(
-                source=window.get_property('Blur.SourceImage'),
-                fallback=window.get_property('Blur.Fallback')))
+                source=get_property('Blur.SourceImage'),
+                fallback=get_property('Blur.Fallback')))
             self.blur_img.setName('blur_img')
             self.blur_img.start()
 
         # Desaturate Image
         if xbmc.getCondVisibility("Skin.HasSetting(TMDbHelper.EnableDesaturate)"):
             self.desaturate_img = ImageFunctions(method='desaturate', artwork=self.get_artwork(
-                source=window.get_property('Desaturate.SourceImage'),
-                fallback=window.get_property('Desaturate.Fallback')))
+                source=get_property('Desaturate.SourceImage'),
+                fallback=get_property('Desaturate.Fallback')))
             self.desaturate_img.setName('desaturate_img')
             self.desaturate_img.start()
 
         # CompColors
         if xbmc.getCondVisibility("Skin.HasSetting(TMDbHelper.EnableColors)"):
             self.colors_img = ImageFunctions(method='colors', artwork=self.get_artwork(
-                source=window.get_property('Colors.SourceImage'),
-                fallback=window.get_property('Colors.Fallback')))
+                source=get_property('Colors.SourceImage'),
+                fallback=get_property('Colors.Fallback')))
             self.colors_img.setName('colors_img')
             self.colors_img.start()
 
         # Allow early exit to only do image manipulations
         if xbmc.getCondVisibility("!Skin.HasSetting(TMDbHelper.Service)"):
-            return window.get_property('IsUpdating', clear_property=True)
+            return get_property('IsUpdating', clear_property=True)
 
         # Need a TMDb type to do a details look-up so exit if we don't have one
         tmdb_type = self.get_tmdb_type()
         if not tmdb_type:
-            return window.get_property('IsUpdating', clear_property=True)
+            return get_property('IsUpdating', clear_property=True)
 
         # Immediately clear some properties like ratings and artwork
         # Don't want these to linger on-screen if the look-up takes a moment
         if self.dbtype not in ['episodes', 'seasons']:
-            self.clear_property_list(monitor_common.SETMAIN_ARTWORK)
-        self.clear_property_list(monitor_common.SETPROP_RATINGS)
+            self.clear_property_list(SETMAIN_ARTWORK)
+        self.clear_property_list(SETPROP_RATINGS)
 
         # Get TMDb Details
         tmdb_id = self.get_tmdb_id(
@@ -265,7 +264,7 @@ class ListItemMonitor(CommonMonitorFunctions):
         details = self.tmdb_api.get_details(tmdb_type, tmdb_id, self.season, self.episode)
         if not details:
             self.clear_properties()
-            return window.get_property('IsUpdating', clear_property=True)
+            return get_property('IsUpdating', clear_property=True)
 
         # Need to update Next Aired with a shorter cache time than details
         if tmdb_type == 'tv' and details.get('infoproperties'):
@@ -280,9 +279,9 @@ class ListItemMonitor(CommonMonitorFunctions):
         if not self.is_same_item():
             ignore_keys = None
             if self.dbtype in ['episodes', 'seasons']:
-                ignore_keys = monitor_common.SETMAIN_ARTWORK
+                ignore_keys = SETMAIN_ARTWORK
             self.clear_properties(ignore_keys=ignore_keys)
-            return window.get_property('IsUpdating', clear_property=True)
+            return get_property('IsUpdating', clear_property=True)
 
         # Get person library statistics
         if tmdb_type == 'person' and details.get('infolabels', {}).get('title'):
@@ -296,4 +295,4 @@ class ListItemMonitor(CommonMonitorFunctions):
             thread_ratings.start()
 
         self.set_properties(details)
-        window.get_property('IsUpdating', clear_property=True)
+        get_property('IsUpdating', clear_property=True)

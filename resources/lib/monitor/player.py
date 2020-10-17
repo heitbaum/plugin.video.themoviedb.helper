@@ -1,16 +1,16 @@
 import xbmc
 import resources.lib.helpers.rpc as rpc
-import resources.lib.helpers.window as window
-import resources.lib.monitor.common as common
+from resources.lib.helpers.window import get_property
+from resources.lib.monitor.common import CommonMonitorFunctions, SETPROP_RATINGS, SETMAIN_ARTWORK
 from resources.lib.helpers.parser import try_decode
 from resources.lib.helpers.plugin import ADDON
 from json import loads
 
 
-class PlayerMonitor(xbmc.Player, common.CommonMonitorFunctions):
+class PlayerMonitor(xbmc.Player, CommonMonitorFunctions):
     def __init__(self):
         xbmc.Player.__init__(self)
-        common.CommonMonitorFunctions.__init__(self)
+        CommonMonitorFunctions.__init__(self)
         self.exit = False
         self.playerstring = None
         self.property_prefix = 'Player'
@@ -50,7 +50,7 @@ class PlayerMonitor(xbmc.Player, common.CommonMonitorFunctions):
             return  # Not a video so don't get info
         if self.getVideoInfoTag().getMediaType() not in ['movie', 'episode']:
             return  # Not a movie or episode so don't get info TODO Maybe get PVR details also?
-        self.playerstring = window.get_property('PlayerInfoString')
+        self.playerstring = get_property('PlayerInfoString')
         self.playerstring = loads(self.playerstring) if self.playerstring else None
 
         self.total_time = self.getTotalTime()
@@ -81,14 +81,14 @@ class PlayerMonitor(xbmc.Player, common.CommonMonitorFunctions):
                 self.details = self.get_trakt_ratings(
                     self.details, 'movie' if self.tmdb_type == 'movie' else 'show',
                     season=self.season, episode=self.episode)
-            self.set_iter_properties(self.details.get('infoproperties', {}), common.SETPROP_RATINGS)
+            self.set_iter_properties(self.details.get('infoproperties', {}), SETPROP_RATINGS)
 
         # Get artwork (no need for threading since we're only getting one item in player ever)
         # No need for merging Kodi DB artwork as we should have access to that via normal player properties
         if xbmc.getCondVisibility("!Skin.HasSetting(TMDbHelper.DisableArtwork)"):
             if ADDON.getSettingBool('service_fanarttv_lookup'):
                 self.details = self.get_fanarttv_artwork(self.details, self.tmdb_type)
-            self.set_iter_properties(self.details, common.SETMAIN_ARTWORK)
+            self.set_iter_properties(self.details, SETMAIN_ARTWORK)
 
         self.set_properties(self.details)
 

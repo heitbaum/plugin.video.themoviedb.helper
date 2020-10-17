@@ -5,7 +5,8 @@
 import sys
 import xbmc
 import xbmcgui
-from resources.lib.helpers.update import add_userlist
+from resources.lib.helpers.update import add_userlist, monitor_userlist, library_autoupdate
+from resources.lib.helpers.downloader import Downloader
 from resources.lib.helpers.window import get_property
 from resources.lib.items.basedir import get_basedir_details
 from resources.lib.fanarttv.api import FanartTV
@@ -56,7 +57,6 @@ def manage_artwork(ftv_id=None, ftv_type=None, **kwargs):
 def related_lists(tmdb_id=None, tmdb_type=None, season=None, episode=None, container_update=True, **kwargs):
     if not tmdb_id or not tmdb_type:
         return
-    # items = get_basedir_details(tmdb_type=tmdb_type, tmdb_id=tmdb_id, season=season, episode=episode)
     items = get_basedir_details(tmdb_type=tmdb_type, tmdb_id=tmdb_id)
     if not items or len(items) <= 1:
         return
@@ -69,15 +69,25 @@ def related_lists(tmdb_id=None, tmdb_type=None, season=None, episode=None, conta
         return
     item['params']['tmdb_id'] = tmdb_id
     item['params']['tmdb_type'] = tmdb_type
-    # if season is not None:
-    #     item['params']['season'] = season
-    #     if episode is not None:
-    #         item['params']['episode'] = episode
     if not container_update:
         return item
     path = 'Container.Update({})' if xbmc.getCondVisibility("Window.IsMedia") else 'ActivateWindow(videos,{},return)'
     path = path.format(encode_url(path=item.get('path'), **item.get('params')))
     xbmc.executebuiltin(path)
+
+
+def update_players():
+    players_url = ADDON.getSettingString('players_url')
+    players_url = xbmcgui.Dialog().input(ADDON.getLocalizedString(32313), defaultt=players_url)
+    if not xbmcgui.Dialog().yesno(
+            ADDON.getLocalizedString(32032),
+            ADDON.getLocalizedString(32314).format(players_url)):
+        return
+    ADDON.setSettingString('players_url', players_url)
+    downloader = Downloader(
+        extract_to='special://profile/addon_data/plugin.video.themoviedb.helper/players',
+        download_url=players_url)
+    downloader.get_extracted_zip()
 
 
 def refresh_details(tmdb_id=None, tmdb_type=None, season=None, episode=None, **kwargs):
@@ -102,10 +112,9 @@ def kodi_setting(kodi_setting, **kwargs):
 
 def user_list(user_list, user_slug=None, **kwargs):
     user_slug = user_slug or 'me'
-    if user_slug and user_list:
-        add_userlist(
-            user_slug=user_slug, list_slug=user_list,
-            confirm=False, allow_update=True, busy_dialog=True)
+    if not user_slug or not user_list:
+        return
+    add_userlist(user_slug=user_slug, list_slug=user_list, confirm=True, allow_update=True, busy_spinner=True)
 
 
 def set_defaultplayer(**kwargs):
@@ -129,6 +138,14 @@ def image_colors(image_colors=None, **kwargs):
     image_colors = ImageFunctions(method='colors', artwork=image_colors)
     image_colors.setName('image_colors')
     image_colors.start()
+
+
+def library_update(**kwargs):
+    library_autoupdate(
+        list_slugs=kwargs.get('list_slug', None),
+        user_slugs=kwargs.get('user_slug', None),
+        busy_spinner=True if kwargs.get('busy_dialog', False) else False,
+        force=kwargs.get('force', False))
 
 
 def sort_list(**kwargs):
@@ -203,8 +220,14 @@ class Script(object):
             return blur_image(**self.params)
         if self.params.get('image_colors'):
             return image_colors(**self.params)
+        if self.params.get('monitor_userlist'):
+            return monitor_userlist()
+        if self.params.get('update_players'):
+            return update_players()
         if self.params.get('set_defaultplayer'):
             return set_defaultplayer(**self.params)
+        if self.params.get('library_autoupdate'):
+            return library_update(**self.params)
         if any(x in WM_PARAMS for x in self.params):
             return WindowManager(**self.params).router()
         if self.params.get('play'):
@@ -213,5 +236,3 @@ class Script(object):
             # Only do the import here because this function only for debugging purposes
             from resources.lib.monitor.service import restart_service_monitor
             return restart_service_monitor()
-        # TODO: monitor/add trakt lists, library update, default players set/clear
-        # NOTE: possibly put trakt list functions in listitem context menu instead

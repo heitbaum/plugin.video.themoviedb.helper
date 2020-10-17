@@ -1,10 +1,10 @@
 import sys
 import xbmc
 import xbmcplugin
-import resources.lib.helpers.plugin as plugin
-import resources.lib.helpers.constants as constants
-import resources.lib.helpers.rpc as rpc
-import resources.lib.script.router as script
+from resources.lib.helpers.constants import NO_LABEL_FORMATTING, RANDOMISED_TRAKT, RANDOMISED_LISTS, TRAKT_LIST_OF_LISTS, TMDB_BASIC_LISTS, TRAKT_BASIC_LISTS, TRAKT_SYNC_LISTS
+from resources.lib.helpers.rpc import get_kodi_library
+from resources.lib.helpers.plugin import convert_type, TYPE_CONTAINER, reconfigure_legacy_params
+from resources.lib.script.router import related_lists
 from resources.lib.items.listitem import ListItem
 from resources.lib.tmdb.api import TMDb
 from resources.lib.trakt.api import TraktAPI
@@ -48,13 +48,14 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
         self.tmdb_api = TMDb()
         self.is_widget = True if self.params.pop('widget', '').lower() == 'true' else False
         self.hide_watched = ADDON.getSettingBool('widgets_hidewatched') if self.is_widget else False
+        self.flatten_seasons = ADDON.getSettingBool('flatten_seasons')
         self.ftv_forced_lookup = self.params.pop('fanarttv', '').lower()
         self.filter_key = self.params.pop('filter_key', None)
         self.filter_value = split_items(self.params.pop('filter_value', None))[0]
         self.exclude_key = self.params.pop('exclude_key', None)
         self.exclude_value = split_items(self.params.pop('exclude_value', None))[0]
         self.pagination = self.pagination_is_allowed()
-        self.params = plugin.reconfigure_legacy_params(**self.params)
+        self.params = reconfigure_legacy_params(**self.params)
 
     def pagination_is_allowed(self):
         if self.params.pop('nextpage', '').lower() == 'false':
@@ -78,7 +79,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
     def add_items(self, items=None, pagination=True, parent_params=None, kodi_db=None, tmdb_cache_only=True):
         if not items:
             return
-        check_is_aired = parent_params.get('info') not in constants.NO_LABEL_FORMATTING
+        check_is_aired = parent_params.get('info') not in NO_LABEL_FORMATTING
         listitem_utils = ItemUtils(
             kodi_db=self.kodi_db, trakt_api=self.trakt_api, tmdb_api=self.tmdb_api,
             ftv_api=FanartTV(cache_only=self.ftv_is_cache_only()))
@@ -99,7 +100,7 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
                 continue
             listitem.set_standard_context_menu()  # Set the context menu items
             listitem.set_unique_ids_to_infoproperties()  # Add unique ids to properties so accessible in skins
-            listitem.set_params_info_reroute(self.ftv_forced_lookup)  # Reroute details to proper end point
+            listitem.set_params_info_reroute(self.ftv_forced_lookup, self.flatten_seasons)  # Reroute details to proper end point
             listitem.set_params_to_infoproperties(self.plugin_category)  # Set path params to properties for use in skins
             xbmcplugin.addDirectoryItem(
                 handle=self.handle,
@@ -139,24 +140,24 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
 
     def get_kodi_database(self, tmdb_type):
         if ADDON.getSettingBool('local_db'):
-            return rpc.get_kodi_library(tmdb_type)
+            return get_kodi_library(tmdb_type)
 
     def get_container_content(self, tmdb_type, season=None, episode=None):
         if tmdb_type == 'tv' and season and episode:
-            return plugin.convert_type('episode', plugin.TYPE_CONTAINER)
+            return convert_type('episode', TYPE_CONTAINER)
         elif tmdb_type == 'tv' and season:
-            return plugin.convert_type('season', plugin.TYPE_CONTAINER)
-        return plugin.convert_type(tmdb_type, plugin.TYPE_CONTAINER)
+            return convert_type('season', TYPE_CONTAINER)
+        return convert_type(tmdb_type, TYPE_CONTAINER)
 
     def list_randomised_trakt(self, **kwargs):
-        kwargs['info'] = constants.RANDOMISED_TRAKT.get(kwargs.get('info'))
+        kwargs['info'] = RANDOMISED_TRAKT.get(kwargs.get('info'))
         kwargs['randomise'] = True
         self.parent_params = kwargs
         return self.get_items(**kwargs)
 
     def list_randomised(self, **kwargs):
         params = merge_two_dicts(
-            kwargs, constants.RANDOMISED_LISTS.get(kwargs.get('info')))
+            kwargs, RANDOMISED_LISTS.get(kwargs.get('info')))
         item = random_from_list(self.get_items(**params))
         if not item:
             return
@@ -192,11 +193,11 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             return self.list_trakt_calendar(**kwargs)
         if info == 'library_nextaired':
             return self.list_trakt_calendar(library=True, **kwargs)
-        if info in constants.TRAKT_LIST_OF_LISTS:
+        if info in TRAKT_LIST_OF_LISTS:
             return self.list_lists(**kwargs)
-        if info in constants.RANDOMISED_LISTS:
+        if info in RANDOMISED_LISTS:
             return self.list_randomised(**kwargs)
-        if info in constants.RANDOMISED_TRAKT:
+        if info in RANDOMISED_TRAKT:
             return self.list_randomised_trakt(**kwargs)
 
         if not kwargs.get('tmdb_id'):
@@ -206,6 +207,8 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             return self.list_details(**kwargs)
         if info == 'seasons':
             return self.list_seasons(**kwargs)
+        if info == 'flatseasons':
+            return self.list_flatseasons(**kwargs)
         if info == 'episodes':
             return self.list_episodes(**kwargs)
         if info == 'cast':
@@ -214,11 +217,11 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
             return self.list_crew(**kwargs)
         if info == 'trakt_upnext':
             return self.list_upnext(**kwargs)
-        if info in constants.TMDB_BASIC_LISTS:
+        if info in TMDB_BASIC_LISTS:
             return self.list_tmdb(**kwargs)
-        if info in constants.TRAKT_BASIC_LISTS:
+        if info in TRAKT_BASIC_LISTS:
             return self.list_trakt(**kwargs)
-        if info in constants.TRAKT_SYNC_LISTS:
+        if info in TRAKT_SYNC_LISTS:
             return self.list_sync(**kwargs)
         return self.list_basedir(info)
 
@@ -259,23 +262,13 @@ class Container(object, TMDbLists, BaseDirLists, SearchLists, UserDiscoverLists,
                 path='{}/resources/poster.png'.format(ADDONPATH)).get_listitem())
         if not kwargs.get('tmdb_id'):
             kwargs['tmdb_id'] = self.tmdb_api.get_tmdb_id(**kwargs)
-
-        # Direct method: occassionally causes an unidentified crash so disabled for time being.
         return Players(**kwargs).play()
-
-        # Shelling out to script method
-        # kwargs.pop('info', None)
-        # kwargs['play'] = kwargs.pop('tmdb_type')
-        # url = 'plugin.video.themoviedb.helper'
-        # for k, v in viewitems(kwargs):
-        #     url = '{},{}={}'.format(url, k, v)
-        # return xbmc.executebuiltin('RunScript({})'.format(url))
 
     def context_related(self, **kwargs):
         if not kwargs.get('tmdb_id'):
             kwargs['tmdb_id'] = self.tmdb_api.get_tmdb_id(**kwargs)
         kwargs['container_update'] = True
-        script.related_lists(**kwargs)
+        related_lists(**kwargs)
 
     def router(self):
         if self.params.get('info') == 'play':

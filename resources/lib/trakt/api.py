@@ -3,7 +3,7 @@ import xbmcgui
 import random
 import resources.lib.helpers.cache as cache
 import resources.lib.items.pages as pages
-import resources.lib.helpers.window as window
+from resources.lib.helpers.window import get_property
 from resources.lib.helpers.cache import use_simple_cache
 from json import loads, dumps
 from resources.lib.request.api import RequestAPI
@@ -310,7 +310,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
             self.attempted_login = True
 
         # First time authorization in this session so let's confirm
-        if self.authorization and window.get_property('TraktIsAuth') != 'True':
+        if self.authorization and get_property('TraktIsAuth') != 'True':
             # Check if we can get a response from user account
             kodi_log('Checking Trakt authorization', 1)
             response = self.get_simple_api_request('https://api.trakt.tv/sync/last_activities', headers=self.headers)
@@ -321,7 +321,7 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
             # Authorization confirmed so let's set a window property for future reference in this session
             if self.authorization:
                 kodi_log('Trakt user account authorized', 1)
-                window.get_property('TraktIsAuth', 'True')
+                get_property('TraktIsAuth', 'True')
 
         return self.authorization
 

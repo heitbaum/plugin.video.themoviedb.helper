@@ -4,9 +4,9 @@
 import xbmc
 import xbmcgui
 import datetime
-import resources.lib.helpers.cache as cache
-import resources.lib.helpers.window as window
-import resources.lib.helpers.plugin as plugin
+from resources.lib.helpers.cache import set_search_history, get_search_history
+from resources.lib.helpers.plugin import TYPE_CONTAINER, TYPE_LIBRARY, TYPE_PLURAL, convert_type
+from resources.lib.helpers.window import get_property
 from resources.lib.tmdb.api import TMDb
 from resources.lib.helpers.plugin import ADDONPATH, ADDON, PLUGINPATH, viewitems
 from resources.lib.helpers.parser import try_int, try_decode, encode_url
@@ -489,7 +489,7 @@ def _get_release_types():
 def _get_basedir_top(tmdb_type):
     return [
         {
-            'label': ADDON.getLocalizedString(32238).format(plugin.convert_type(tmdb_type, plugin.TYPE_PLURAL)),
+            'label': ADDON.getLocalizedString(32238).format(convert_type(tmdb_type, TYPE_PLURAL)),
             'art': {'thumb': '{}/resources/poster.png'.format(ADDONPATH)},
             'params': {'info': 'user_discover', 'tmdb_type': tmdb_type, 'method': 'open'}},
         {
@@ -594,7 +594,7 @@ def _win_prop(name, prefix=None, **kwargs):
     if not name:
         return
     prefix = 'UserDiscover.{}'.format(prefix) if prefix else 'UserDiscover'
-    return window.get_property('{}.{}'.format(prefix, name), **kwargs)
+    return get_property('{}.{}'.format(prefix, name), **kwargs)
 
 
 def _clear_properties(methods=ALL_METHODS):
@@ -729,7 +729,7 @@ def _edit_rules(idx=-1):
     """ Need to setup window properties if editing """
     if idx == -1:
         return
-    history = cache.get_search_history('discover')
+    history = get_search_history('discover')
     history.reverse()
     try:
         item = history[idx]
@@ -749,7 +749,7 @@ def _save_rules(tmdb_type):
     params = _get_discover_params(tmdb_type)
     labels = _get_discover_params(tmdb_type, get_labels=True)
     label = _win_prop('save_label') if my_idx != -1 else xbmcgui.Dialog().input(ADDON.getLocalizedString(32241))
-    cache.set_search_history(
+    set_search_history(
         'discover',
         query={'label': label, 'params': params, 'labels': labels},
         replace=my_idx if my_idx != -1 else False)
@@ -862,8 +862,8 @@ class UserDiscoverLists():
     def list_discover(self, tmdb_type, **kwargs):
         items = TMDb().get_discover_list(tmdb_type, **_translate_discover_params(tmdb_type, kwargs))
         self.kodi_db = self.get_kodi_database(tmdb_type)
-        self.library = plugin.convert_type(tmdb_type, plugin.TYPE_LIBRARY)
-        self.container_content = plugin.convert_type(tmdb_type, plugin.TYPE_CONTAINER)
+        self.library = convert_type(tmdb_type, TYPE_LIBRARY)
+        self.container_content = convert_type(tmdb_type, TYPE_CONTAINER)
         return items
 
     def list_discoverdir_router(self, **kwargs):
@@ -877,19 +877,19 @@ class UserDiscoverLists():
         self.container_update = '{},replace'.format(encode_url(PLUGINPATH, **params))
 
         if kwargs.get('clear_cache') == 'True':
-            cache.set_search_history('discover', clear_cache=True)
+            set_search_history('discover', clear_cache=True)
 
         elif kwargs.get('method') == 'delete':
             idx = try_int(kwargs.get('idx', -1))
             if idx == -1:
                 return
-            cache.set_search_history('discover', replace=idx)
+            set_search_history('discover', replace=idx)
 
         elif kwargs.get('method') == 'rename':
             idx = try_int(kwargs.get('idx', -1))
             if idx == -1:
                 return
-            history = cache.get_search_history('discover')
+            history = get_search_history('discover')
             try:
                 item = history[idx]
             except IndexError:
@@ -897,7 +897,7 @@ class UserDiscoverLists():
             if not item:
                 return
             item['label'] = xbmcgui.Dialog().input('Rename', defaultt=item.get('label')) or item.get('label')
-            cache.set_search_history('discover', item, replace=idx)
+            set_search_history('discover', item, replace=idx)
 
     def list_discoverdir(self, **kwargs):
         items = []
@@ -905,13 +905,13 @@ class UserDiscoverLists():
         artwork = {'thumb': '{}/resources/poster.png'.format(ADDONPATH)}
         for i in ['movie', 'tv']:
             item = {
-                'label': '{} {}'.format(ADDON.getLocalizedString(32174), plugin.convert_type(i, plugin.TYPE_PLURAL)),
+                'label': '{} {}'.format(ADDON.getLocalizedString(32174), convert_type(i, TYPE_PLURAL)),
                 'params': merge_two_dicts(params, {'tmdb_type': i}),
                 'infoproperties': {'specialsort': 'top'},
                 'art': artwork}
             items.append(item)
 
-        history = cache.get_search_history('discover')
+        history = get_search_history('discover')
         history.reverse()
         for x, i in enumerate(history):
             item_params = merge_two_dicts(kwargs, i.get('params', {}))

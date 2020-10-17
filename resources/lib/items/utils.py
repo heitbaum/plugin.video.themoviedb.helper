@@ -2,7 +2,7 @@ import resources.lib.helpers.rpc as rpc
 from resources.lib.trakt.api import TraktAPI
 from resources.lib.tmdb.api import TMDb
 from resources.lib.helpers.parser import try_int
-from resources.lib.helpers.plugin import ADDON
+from resources.lib.helpers.plugin import ADDON, viewitems
 # from resources.lib.helpers.decorators import timer_report
 
 
@@ -22,7 +22,12 @@ class ItemUtils(object):
         """ merges art with fanarttv art - must pass through fanarttv api object """
         if not self.ftv_api:
             return
-        return {'art': self.ftv_api.get_all_artwork(listitem.get_ftv_id(), listitem.get_ftv_type())}
+        artwork = self.ftv_api.get_all_artwork(listitem.get_ftv_id(), listitem.get_ftv_type())
+        if not artwork:
+            return
+        if listitem.infolabels.get('mediatype') in ['season', 'episode']:
+            artwork = {u'tvshow.{}'.format(k): v for k, v in viewitems(artwork) if v}
+        return {'art': artwork}
 
     def get_external_ids(self, listitem, season=None, episode=None):
         unique_id, trakt_type = None, None

@@ -51,6 +51,10 @@ def is_future_timestamp(time_str, time_fmt="%Y-%m-%dT%H:%M:%S", time_lim=19, utc
         return time_str
 
 
+def get_current_date_time(str_fmt='%Y-%m-%d %H:%M'):
+    return datetime.datetime.now().strftime(str_fmt)
+
+
 def get_todays_date(days=0):
     date_obj = datetime.datetime.today()
     if days:

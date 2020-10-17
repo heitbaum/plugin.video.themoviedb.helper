@@ -636,7 +636,7 @@ msgstr ""
 
 #: /resources/lib/context.py
 msgctxt "#32126"
-msgid "Do you wish to add this Trakt list to your Kodi library?"
+msgid "Are you sure you want to add this Trakt list to your Kodi library?"
 msgstr ""
 
 #: /resources/lib/context.py
@@ -1570,6 +1570,21 @@ msgstr ""
 #: /resources/lib/player/players.py
 msgctxt "#32311"
 msgid "Clear default player"
+msgstr ""
+
+#: /resources/lib/helpers/update.py
+msgctxt "#32312"
+msgid "Select lists"
+msgstr ""
+
+#: /resources/lib/script/router.py
+msgctxt "#32313"
+msgid "Enter URL to download players"
+msgstr ""
+
+#: /resources/lib/script/router.py
+msgctxt "#32314"
+msgid "Download players from URL?\n[B]{}[/B]"
 msgstr ""
 
 msgctxt "#30030"

@@ -6,7 +6,7 @@ from resources.lib.helpers.fileutils import get_pickle_name
 if sys.version_info[0] >= 3:
     unicode = str  # In Py3 str is now unicode
 _cache = simplecache.SimpleCache()
-_cache_name = 'TMDbHelper_v4'
+_cache_name = 'TMDbHelper_v4.0.2'
 CACHE_LONG = 14
 CACHE_SHORT = 1
 CACHE_EXTENDED = 90
