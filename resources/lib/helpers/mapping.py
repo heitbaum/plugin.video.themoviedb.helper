@@ -5,6 +5,16 @@ from resources.lib.helpers.timedate import age_difference
 UPDATE_BASEKEY = 1
 
 
+def get_empty_item():
+    return {
+        'art': {},
+        'cast': [],
+        'infolabels': {},
+        'infoproperties': {},
+        'unique_ids': {},
+        'params': {}}
+
+
 def set_show(item, base_item=None):
     if not base_item:
         return item
@@ -20,15 +30,6 @@ def set_show(item, base_item=None):
 
 
 class _ItemMapper(object):
-    def get_item(self):
-        return {
-            'art': {},
-            'cast': [],
-            'infolabels': {},
-            'infoproperties': {},
-            'unique_ids': {},
-            'params': {}}
-
     def add_base(self, item, base_item=None, tmdb_type=None):
         if not base_item:
             return item

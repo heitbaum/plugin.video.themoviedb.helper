@@ -47,18 +47,29 @@ class RequestAPI(object):
             return request.json()
         return {}
 
-    def get_simple_api_request(self, request=None, postdata=None, headers=None):
+    def connection_error(self, err):
+        self.req_connect_err = set_timestamp()
+        get_property(self.req_connect_err_prop, self.req_connect_err)
+        kodi_log(u'ConnectionError: {}\nSuppressing retries for 1 minute'.format(err), 1)
+        xbmcgui.Dialog().notification(
+            ADDON.getLocalizedString(32308).format(self.req_api_name),
+            ADDON.getLocalizedString(32307))
+
+    def get_simple_api_request(self, request=None, postdata=None, headers=None, method=None):
         try:
-            if not postdata:
-                return requests.get(request, headers=headers, timeout=self.timeout)
-            return requests.post(request, data=postdata, headers=headers)
+            if method == 'delete':
+                response = requests.delete(request, headers=headers, timeout=self.timeout)
+                kodi_log(response.status_code, 1)
+                return response
+            if postdata or method == 'post':  # If pass postdata assume we want to post
+                return requests.post(request, data=postdata, headers=headers, timeout=self.timeout)
+            return requests.get(request, headers=headers, timeout=self.timeout)
+        except requests.exceptions.ConnectionError as errc:
+            self.connection_error(errc)
+        except requests.exceptions.Timeout as errt:
+            self.connection_error(errt)
         except Exception as err:
-            self.req_connect_err = set_timestamp()
-            get_property(self.req_connect_err_prop, self.req_connect_err)
-            kodi_log(u'ConnectionError: {}\nSuppressing retries for 1 minute'.format(err), 1)
-            xbmcgui.Dialog().notification(
-                ADDON.getLocalizedString(32308).format(self.req_api_name),
-                ADDON.getLocalizedString(32307))
+            kodi_log(u'RequestError: {}'.format(err), 1)
 
     def get_api_request(self, request=None, postdata=None, headers=None):
         """
@@ -75,17 +86,19 @@ class RequestAPI(object):
 
         # Some error checking
         if not response.status_code == requests.codes.ok and try_int(response.status_code) >= 400:  # Error Checking
-            if response.status_code == 401:  # Invalid API Key
-                kodi_log(u'HTTP Error Code: {0}\nRequest: {1}\nPostdata: {2}\nHeaders: {3}\nResponse: {4}'.format(response.status_code, request, postdata, headers, response), 1)
-            elif response.status_code == 500:
-                self.req_connect_err = set_timestamp()
-                get_property(self.req_connect_err_prop, self.req_connect_err)
-                kodi_log(u'HTTP Error Code: {0}\nRequest: {1}\nSuppressing retries for 1 minute'.format(response.status_code, request), 1)
-                xbmcgui.Dialog().notification(
-                    ADDON.getLocalizedString(32308).format(self.req_api_name),
-                    ADDON.getLocalizedString(32307))
-            elif try_int(response.status_code) > 400:  # Don't write 400 error to log
-                kodi_log(u'HTTP Error Code: {0}\nRequest: {1}'.format(response.status_code, request), 1)
+            # 500 code is server error which usually indicates Trakt is down
+            # In this case let's set a connection error and suppress retries for a minute
+            if response.status_code == 500:
+                self.connection_error(response.status_code)
+            # Don't write 400 Bad Request error to log
+            # 401 == OAuth / API key required
+            elif try_int(response.status_code) > 400:
+                kodi_log([
+                    u'HTTP Error Code: {}'.format(response.status_code),
+                    u'\nRequest: {}'.format(request),
+                    u'\nPostdata: {}'.format(postdata),
+                    u'\nHeaders: {}'.format(headers),
+                    u'\nResponse: {}'.format(response)], 1)
             return
 
         # Return our response

@@ -19,6 +19,7 @@ CONTAINER_ID = 9999
 def _configure_path(path):
     path = path.replace('info=play', 'info=details')
     path = path.replace('info=seasons', 'info=details')
+    path = path.replace('info=related', 'info=details')
     # TODO: Check if we still need this "extended=True" param
     if 'extended=True' not in path:
         path = '{}&{}'.format(path, 'extended=True')

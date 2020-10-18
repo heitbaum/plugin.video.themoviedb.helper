@@ -20,6 +20,25 @@ CLIENT_ID = 'e6fde6173adf3c6af8fd1b0694b9b84d7c519cefc24482310e1de06c6abe5467'
 CLIENT_SECRET = '15119384341d9a61c751d8d515acbc0dd801001d4ebe85d3eef9885df80ee4d9'
 
 
+def get_sort_methods():
+    return [
+        {
+            'name': '{}: {}'.format(ADDON.getLocalizedString(32287), ADDON.getLocalizedString(32286)),
+            'params': {'sort_by': 'rank', 'sort_how': 'asc'}},
+        {
+            'name': '{}: {}'.format(ADDON.getLocalizedString(32287), ADDON.getLocalizedString(32106)),
+            'params': {'sort_by': 'added', 'sort_how': 'desc'}},
+        {
+            'name': '{}: {}'.format(ADDON.getLocalizedString(32287), xbmc.getLocalizedString(369)),
+            'params': {'sort_by': 'title', 'sort_how': 'asc'}},
+        {
+            'name': '{}: {}'.format(ADDON.getLocalizedString(32287), xbmc.getLocalizedString(345)),
+            'params': {'sort_by': 'year', 'sort_how': 'desc'}},
+        {
+            'name': '{}: {}'.format(ADDON.getLocalizedString(32287), xbmc.getLocalizedString(590)),
+            'params': {'sort_by': 'random'}}]
+
+
 class _TraktLists():
     @use_simple_cache(cache_days=cache.CACHE_SHORT)
     def get_sorted_list(self, path, sort_by=None, sort_how=None, extended=None, trakt_type=None, permitted_types=None, cache_refresh=False):
@@ -95,6 +114,8 @@ class _TraktLists():
     @is_authorized
     def get_list_of_lists(self, path, page=1, limit=250, authorize=False, next_page=True):
         response = self.get_response(path, page=page, limit=limit)
+        like_list = True if path.startswith('lists/') else False
+        delete_like = True if path.startswith('users/likes') else False
         if not response:
             return
         items = []
@@ -117,14 +138,37 @@ class _TraktLists():
                 'slug': i.get('ids', {}).get('slug'),
                 'user': i.get('user', {}).get('ids', {}).get('slug')}
             item['infoproperties']['tmdbhelper.context.sorting'] = dumps(item['params'])
-            add_library_params = 'user_list={list_slug},user_slug={user_slug}'.format(**item['params'])
             item['context_menu'] = [(
-                xbmc.getLocalizedString(20444),
-                'Runscript(plugin.video.themoviedb.helper,{})'.format(add_library_params))]
+                xbmc.getLocalizedString(20444), 'Runscript(plugin.video.themoviedb.helper,{})'.format(
+                    'user_list={list_slug},user_slug={user_slug}'.format(**item['params'])))]
+            if delete_like:
+                item['context_menu'] += [(
+                    ADDON.getLocalizedString(32319), 'Runscript(plugin.video.themoviedb.helper,{},delete)'.format(
+                        'like_list={list_slug},user_slug={user_slug}'.format(**item['params'])))]
+            elif like_list:
+                item['context_menu'] += [(
+                    ADDON.getLocalizedString(32315), 'Runscript(plugin.video.themoviedb.helper,{})'.format(
+                        'like_list={list_slug},user_slug={user_slug}'.format(**item['params'])))]
             items.append(item)
         if not next_page:
             return items
         return items + pages.get_next_page(response.headers)
+
+    @is_authorized
+    def like_userlist(self, user_slug=None, list_slug=None, confirmation=False, delete=False):
+        func = self.delete_response if delete else self.post_response
+        response = func('users', user_slug, 'lists', list_slug, 'like')
+        if confirmation:
+            affix = ADDON.getLocalizedString(32320) if delete else ADDON.getLocalizedString(32321)
+            body = [
+                ADDON.getLocalizedString(32316).format(affix),
+                ADDON.getLocalizedString(32168).format(list_slug, user_slug)] if response.status_code == 204 else [
+                ADDON.getLocalizedString(32317).format(affix),
+                ADDON.getLocalizedString(32168).format(list_slug, user_slug),
+                ADDON.getLocalizedString(32318).format(response.status_code)]
+            xbmcgui.Dialog().ok(ADDON.getLocalizedString(32315), '\n'.join(body))
+        if response.status_code == 204:
+            return response
 
 
 class _TraktSync():
@@ -432,12 +476,19 @@ class TraktAPI(RequestAPI, _TraktSync, _TraktLists, _TraktProgress):
             self.auth_dialog.update(int(progress))
             return True
 
+    def delete_response(self, *args, **kwargs):
+        return self.get_simple_api_request(
+            self.get_request_url(*args, **kwargs),
+            headers=self.headers,
+            method='delete')
+
     def post_response(self, *args, **kwargs):
         postdata = kwargs.pop('postdata', None)
-        if not postdata:
-            return
         return self.get_simple_api_request(
-            self.get_request_url(*args, **kwargs), headers=self.headers, postdata=dumps(postdata))
+            self.get_request_url(*args, **kwargs),
+            headers=self.headers,
+            postdata=dumps(postdata) if postdata else None,
+            method='post')
 
     def get_response(self, *args, **kwargs):
         return self.get_api_request(self.get_request_url(*args, **kwargs), headers=self.headers)

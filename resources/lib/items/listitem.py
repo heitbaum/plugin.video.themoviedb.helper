@@ -176,33 +176,40 @@ class ListItem(object):
         self.cast = self.cast or details.get('cast', [])
 
     def set_params_info_reroute(self, ftv_forced_lookup=False, flatten_seasons=False):
+        # Do some special stuff for skin shortcuts window like set widget pararm and provide sorting methods
         if xbmc.getCondVisibility("Window.IsVisible(script-skinshortcuts.xml)"):
             self.params['widget'] = 'true'
+            if self.infoproperties.get('tmdbhelper.context.sorting'):
+                self.params['parent_info'] = self.params['info']
+                self.params['info'] = 'trakt_sortby'
+
+        # If parent list had fanarttv param we should carry this with us onto following pages
         if ftv_forced_lookup:
             self.params['fanarttv'] = ftv_forced_lookup
-        if self.params.get('info') != 'details':
-            return
-        if self.infoproperties.get('tmdb_type') == 'person':
-            self.params['info'] = 'details'
-            self.params['tmdb_type'] = 'person'
-            self.params['tmdb_id'] = self.unique_ids.get('tmdb')
-            self.is_folder = True
-        elif (self.parent_params.get('info') == 'library_nextaired'
-                and self.infolabels.get('mediatype') == 'episode'
-                and ADDON.getSettingBool('nextaired_linklibrary')
-                and self.infoproperties.get('tvshow.dbid')):
-            self.path = 'videodb://tvshows/titles/{}/'.format(self.infoproperties['tvshow.dbid'])
-            self.params = {}
-            self.is_folder = True
-        elif self.infolabels.get('mediatype') in ['movie', 'episode', 'video']:
-            self.params['info'] = 'play'
-            self.is_folder = False
-        elif self.infolabels.get('mediatype') == 'tvshow':
-            self.params['info'] = 'flatseasons' if flatten_seasons else 'seasons'
-        elif self.infolabels.get('mediatype') == 'season':
-            self.params['info'] = 'episodes'
-        elif self.infolabels.get('mediatype') == 'set':
-            self.params['info'] = 'collection'
+
+        # Reconfigure various details sections to point to the correct places
+        if self.params.get('info') == 'details':
+            if self.infoproperties.get('tmdb_type') == 'person':
+                self.params['info'] = 'related'
+                self.params['tmdb_type'] = 'person'
+                self.params['tmdb_id'] = self.unique_ids.get('tmdb')
+                self.is_folder = False
+            elif (self.parent_params.get('info') == 'library_nextaired'
+                    and self.infolabels.get('mediatype') == 'episode'
+                    and ADDON.getSettingBool('nextaired_linklibrary')
+                    and self.infoproperties.get('tvshow.dbid')):
+                self.path = 'videodb://tvshows/titles/{}/'.format(self.infoproperties['tvshow.dbid'])
+                self.params = {}
+                self.is_folder = True
+            elif self.infolabels.get('mediatype') in ['movie', 'episode', 'video']:
+                self.params['info'] = 'play'
+                self.is_folder = False
+            elif self.infolabels.get('mediatype') == 'tvshow':
+                self.params['info'] = 'flatseasons' if flatten_seasons else 'seasons'
+            elif self.infolabels.get('mediatype') == 'season':
+                self.params['info'] = 'episodes'
+            elif self.infolabels.get('mediatype') == 'set':
+                self.params['info'] = 'collection'
 
     def set_episode_label(self, format_label=u'{season}x{episode:0>2}. {label}'):
         if not self.infolabels.get('mediatype') == 'episode':

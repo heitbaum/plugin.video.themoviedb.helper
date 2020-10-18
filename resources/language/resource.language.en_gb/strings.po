@@ -1584,7 +1584,44 @@ msgstr ""
 
 #: /resources/lib/script/router.py
 msgctxt "#32314"
-msgid "Download players from URL?\n[B]{}[/B]"
+msgid ""
+"Download players from URL?\n"
+"[B]{}[/B]"
+msgstr ""
+
+#: /resources/lib/trakt/api.py
+msgctxt "#32315"
+msgid "Add to liked lists"
+msgstr ""
+
+#: /resources/lib/trakt/api.py
+msgctxt "#32316"
+msgid "Successfully {} list!"
+msgstr ""
+
+#: /resources/lib/trakt/api.py
+msgctxt "#32317"
+msgid "Unable to {} list!"
+msgstr ""
+
+#: /resources/lib/trakt/api.py
+msgctxt "#32318"
+msgid "Error code: {}"
+msgstr ""
+
+#: /resources/lib/trakt/api.py
+msgctxt "#32319"
+msgid "Remove from liked lists"
+msgstr ""
+
+#: /resources/lib/trakt/api.py
+msgctxt "#32320"
+msgid "unliked"
+msgstr ""
+
+#: /resources/lib/trakt/api.py
+msgctxt "#32321"
+msgid "liked"
 msgstr ""
 
 msgctxt "#30030"
