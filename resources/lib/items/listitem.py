@@ -183,10 +183,10 @@ class ListItem(object):
         if self.params.get('info') != 'details':
             return
         if self.infoproperties.get('tmdb_type') == 'person':
-            self.params['info'] = 'details'
+            self.params['info'] = 'related'
             self.params['tmdb_type'] = 'person'
             self.params['tmdb_id'] = self.unique_ids.get('tmdb')
-            self.is_folder = True
+            self.is_folder = False
         elif (self.parent_params.get('info') == 'library_nextaired'
                 and self.infolabels.get('mediatype') == 'episode'
                 and ADDON.getSettingBool('nextaired_linklibrary')
