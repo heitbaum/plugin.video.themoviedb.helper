@@ -90,6 +90,9 @@ class RequestAPI(object):
             # In this case let's set a connection error and suppress retries for a minute
             if response.status_code == 500:
                 self.connection_error(response.status_code)
+            # 429 is too many requests code so suppress retries for a minute
+            elif response.status_code == 429:
+                self.connection_error(response.status_code)
             # Don't write 400 Bad Request error to log
             # 401 == OAuth / API key required
             elif try_int(response.status_code) > 400:
