@@ -1,11 +1,10 @@
 import xbmc
-from resources.lib.helpers.plugin import get_mpaa_prefix, get_language
-from resources.lib.helpers.plugin import viewitems, ADDON
+from resources.lib.helpers.plugin import get_mpaa_prefix, get_language, viewitems, ADDON
 from resources.lib.helpers.parser import try_int, try_float
 from resources.lib.helpers.setutils import iter_props, dict_to_list, get_params
 from resources.lib.helpers.timedate import format_date
 from resources.lib.helpers.constants import IMAGEPATH_ORIGINAL, IMAGEPATH_POSTER, TMDB_GENRE_IDS
-from resources.lib.helpers.mapping import UPDATE_BASEKEY, _ItemMapper
+from resources.lib.helpers.mapping import UPDATE_BASEKEY, _ItemMapper, get_empty_item
 
 
 def get_imagepath_poster(v):
@@ -515,7 +514,7 @@ class ItemMapper(_ItemMapper):
         }
 
     def get_info(self, info_item, tmdb_type, base_item=None, **kwargs):
-        item = self.get_item()
+        item = get_empty_item()
         item = self.map_item(item, info_item)
         item = self.add_base(item, base_item, tmdb_type)
         item = self.finalise(item, tmdb_type)

@@ -11,8 +11,8 @@ from resources.lib.helpers.window import get_property
 from resources.lib.items.basedir import get_basedir_details
 from resources.lib.fanarttv.api import FanartTV
 from resources.lib.tmdb.api import TMDb
-from resources.lib.trakt.api import TraktAPI
-from resources.lib.helpers.plugin import ADDON, reconfigure_legacy_params
+from resources.lib.trakt.api import TraktAPI, get_sort_methods
+from resources.lib.helpers.plugin import ADDON, reconfigure_legacy_params, viewitems
 from resources.lib.helpers.rpc import get_jsonrpc
 from resources.lib.script.sync import SyncItem
 from resources.lib.helpers.decorators import busy_dialog
@@ -149,29 +149,16 @@ def library_update(**kwargs):
 
 
 def sort_list(**kwargs):
-    choice = xbmcgui.Dialog().contextmenu([
-        '{}: {}'.format(ADDON.getLocalizedString(32287), ADDON.getLocalizedString(32286)),
-        '{}: {}'.format(ADDON.getLocalizedString(32287), ADDON.getLocalizedString(32106)),
-        '{}: {}'.format(ADDON.getLocalizedString(32287), xbmc.getLocalizedString(369)),
-        '{}: {}'.format(ADDON.getLocalizedString(32287), xbmc.getLocalizedString(345)),
-        '{}: {}'.format(ADDON.getLocalizedString(32287), xbmc.getLocalizedString(590))])
-    if choice == 0:
-        kwargs['sort_by'] = 'rank'
-        kwargs['sort_how'] = 'asc'
-    elif choice == 1:
-        kwargs['sort_by'] = 'added'
-        kwargs['sort_how'] = 'desc'
-    elif choice == 2:
-        kwargs['sort_by'] = 'title'
-        kwargs['sort_how'] = 'asc'
-    elif choice == 3:
-        kwargs['sort_by'] = 'year'
-        kwargs['sort_how'] = 'desc'
-    elif choice == 4:
-        kwargs['sort_by'] = 'random'
-    else:
+    sort_methods = get_sort_methods()
+    x = xbmcgui.Dialog().contextmenu([i['name'] for i in sort_methods])
+    if x == -1:
         return
-    command = 'Container.Update({})' if xbmc.getCondVisibility("Window.IsMedia") else 'ActivateWindow(videos,{},return)'
+    for k, v in viewitems(sort_methods[x]['params']):
+        kwargs[k] = v
+    if xbmc.getCondVisibility("Window.IsMedia"):
+        command = 'Container.Update({})'
+    else:
+        command = 'ActivateWindow(videos,{},return)'
     xbmc.executebuiltin(command.format(encode_url(**kwargs)))
 
 
