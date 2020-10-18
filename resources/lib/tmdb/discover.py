@@ -860,6 +860,7 @@ def _translate_discover_params(tmdb_type, params):
 
 class UserDiscoverLists():
     def list_discover(self, tmdb_type, **kwargs):
+        kwargs.pop('info', None)
         items = TMDb().get_discover_list(tmdb_type, **_translate_discover_params(tmdb_type, kwargs))
         self.kodi_db = self.get_kodi_database(tmdb_type)
         self.library = convert_type(tmdb_type, TYPE_LIBRARY)

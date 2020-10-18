@@ -3,7 +3,7 @@ import datetime
 import resources.lib.helpers.cache as cache
 from resources.lib.tmdb.mapping import ItemMapper, get_episode_to_air
 from resources.lib.request.api import RequestAPI
-from resources.lib.helpers.plugin import viewitems, ADDON, get_mpaa_prefix, get_language, convert_type, TYPE_DB, ADDONPATH
+from resources.lib.helpers.plugin import viewitems, ADDON, get_mpaa_prefix, get_language, convert_type, TYPE_DB, ADDONPATH, kodi_log
 from resources.lib.helpers.downloader import Downloader
 from resources.lib.items.listitem import ListItem
 from resources.lib.helpers.constants import TMDB_ALL_ITEMS_LISTS, TMDB_PARAMS_SEASONS, TMDB_PARAMS_EPISODES
@@ -320,6 +320,13 @@ class TMDb(RequestAPI):
 
     def get_discover_list(self, tmdb_type, **kwargs):
         # TODO: Check what regions etc we need to have
+        for k, v in viewitems(kwargs):
+            if k in ['with_id', 'with_separator']:
+                continue
+            if k and v:
+                break
+        else:  # Only build discover list if we have params to pass
+            return
         path = 'discover/{}'.format(tmdb_type)
         return self.get_basic_list(path, tmdb_type, **kwargs)
 
