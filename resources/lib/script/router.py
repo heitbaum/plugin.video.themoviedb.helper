@@ -117,6 +117,17 @@ def user_list(user_list, user_slug=None, **kwargs):
     add_userlist(user_slug=user_slug, list_slug=user_list, confirm=True, allow_update=True, busy_spinner=True)
 
 
+def like_list(like_list, user_slug=None, delete=False, **kwargs):
+    user_slug = user_slug or 'me'
+    if not user_slug or not like_list:
+        return
+    TraktAPI().like_userlist(user_slug=user_slug, list_slug=like_list, confirmation=True, delete=delete)
+    if not delete:
+        return
+    xbmc.executebuiltin('Container.Refresh')
+    xbmc.executebuiltin('UpdateLibrary(video,/fake/path/to/force/refresh/on/home)')
+
+
 def set_defaultplayer(**kwargs):
     tmdb_type = kwargs.get('set_defaultplayer')
     setting_name = 'default_player_movies' if tmdb_type == 'movie' else 'default_player_episodes'
@@ -203,6 +214,8 @@ class Script(object):
             return related_lists(**self.params)
         if self.params.get('user_list'):
             return user_list(**self.params)
+        if self.params.get('like_list'):
+            return like_list(**self.params)
         if self.params.get('blur_image'):
             return blur_image(**self.params)
         if self.params.get('image_colors'):
